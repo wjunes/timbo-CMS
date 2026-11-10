@@ -1,0 +1,40 @@
+# Dependencias
+node_modules/
+
+# Variables de entorno y secretos (solo se versiona .env.example)
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.crt
+*.p12
+
+# Datos en tiempo de ejecución (base de datos, archivos subidos, backups)
+storage/
+database/*.db
+database/*.db-*
+*.sqlite
+*.sqlite3
+*.db-wal
+*.db-shm
+*.db-journal
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# Cobertura y temporales
+coverage/
+.nyc_output/
+*.tmp
+tmp/
+
+# Sistema operativo / editores
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/*
+!.vscode/extensions.json
+.idea/
