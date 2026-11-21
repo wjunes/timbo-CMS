@@ -31,14 +31,14 @@ const run = (sql, ...params) => db.prepare(sql).run(...params);
 const get = (sql, ...params) => db.prepare(sql).get(...params);
 
 describe('esquema: estructura general', () => {
-  it('crea las 14 tablas del modelo más schema_migrations, todas STRICT', () => {
+  it('crea las 15 tablas del modelo más schema_migrations, todas STRICT', () => {
     const tables = db
       .prepare("SELECT name, strict FROM pragma_table_list WHERE schema = 'main' AND type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY name")
       .all();
     assert.deepEqual(
       tables.map((t) => t.name),
       [
-        'audit_logs', 'content_media', 'content_versions', 'contents', 'media', 'permissions', 'publication_reviews',
+        'audit_logs', 'content_media', 'content_versions', 'contents', 'media', 'permissions', 'presentations', 'publication_reviews',
         'schema_migrations', 'section_types', 'sections', 'sessions', 'settings', 'user_section_permissions', 'user_sections', 'users',
       ],
     );
@@ -156,7 +156,8 @@ describe('esquema: secciones', () => {
 
   it('solo admite flujos y presentaciones del sistema', () => {
     expectSqliteError(assert, () => run("UPDATE sections SET workflow = 'auto' WHERE id = 1"), 'CHECK constraint failed');
-    expectSqliteError(assert, () => run("UPDATE sections SET presentation = 'custom_html' WHERE id = 1"), 'CHECK constraint failed');
+    // Desde la migración 003 las presentaciones son un catálogo (clave foránea).
+    expectSqliteError(assert, () => run("UPDATE sections SET presentation = 'custom_html' WHERE id = 1"), 'FOREIGN KEY constraint failed');
   });
 });
 
@@ -422,5 +423,82 @@ describe('esquema 002: usuarios y permisos', () => {
 
   it('carga el catálogo de 9 permisos', () => {
     assert.equal(get('SELECT count(*) AS n FROM permissions').n, 9);
+  });
+});
+
+describe('esquema 003: secciones', () => {
+  const insertSection = (slug, parentId = null, { status = 'active', presentation = 'page' } = {}) =>
+    Number(
+      run("INSERT INTO sections (section_type_id, parent_id, slug, name, presentation, status) VALUES (1, ?, ?, 'S', ?, ?)", parentId, slug, presentation, status)
+        .lastInsertRowid,
+    );
+
+  it('migra las presentaciones existentes al catálogo sin perder datos', () => {
+    assert.equal(get('SELECT count(*) AS n FROM presentations').n, 5);
+    assert.deepEqual(
+      db.prepare('SELECT slug, presentation FROM sections ORDER BY id').all().map((r) => `${r.slug}:${r.presentation}`),
+      ['institucional:page', 'noticias:list', 'articulos:list', 'biblioteca:document_list', 'preguntas-frecuentes:accordion'],
+    );
+    assert.equal(get("SELECT default_presentation AS p FROM section_types WHERE code = 'faq'").p, 'accordion');
+    assert.deepEqual(db.prepare('PRAGMA foreign_key_check').all(), []);
+  });
+
+  it('la presentación es obligatoria y debe existir en el catálogo', () => {
+    expectSqliteError(assert, () => insertSection('sin-presentacion', null, { presentation: null }), 'presentation_required');
+    expectSqliteError(assert, () => run('UPDATE sections SET presentation = NULL WHERE id = 1'), 'presentation_required');
+    expectSqliteError(assert, () => insertSection('rara', null, { presentation: 'carousel' }), 'FOREIGN KEY constraint failed');
+    expectSqliteError(assert, () => run("UPDATE section_types SET default_presentation = 'x' WHERE id = 1"), 'FOREIGN KEY constraint failed');
+    expectSqliteError(assert, () => run('UPDATE section_types SET default_presentation = NULL WHERE id = 1'), 'presentation_required');
+    expectSqliteError(assert, () => run("DELETE FROM presentations WHERE code = 'page'"), 'FOREIGN KEY constraint failed');
+  });
+
+  it('una presentación nueva se añade con un INSERT', () => {
+    run("INSERT INTO presentations (code, name) VALUES ('timeline', 'Línea de tiempo')");
+    insertSection('cronologia', null, { presentation: 'timeline' });
+  });
+
+  it('el tipo de sección es inmutable', () => {
+    expectSqliteError(assert, () => run('UPDATE sections SET section_type_id = 2 WHERE id = 1'), 'section_type_immutable');
+  });
+
+  it('limita la jerarquía a 3 niveles, también al mover subárboles', () => {
+    const a = insertSection('nivel-a');
+    const b = insertSection('nivel-b', a);
+    insertSection('nivel-c', b);
+    expectSqliteError(assert, () => insertSection('nivel-d', Number(get("SELECT id FROM sections WHERE slug = 'nivel-c'").id)), 'section_depth_exceeded');
+    // Mover un subárbol de 2 niveles bajo una sección de nivel 2 daría 4 niveles.
+    const x = insertSection('otra-x');
+    const y = insertSection('otra-y', x);
+    expectSqliteError(assert, () => run('UPDATE sections SET parent_id = ? WHERE id = ?', y, a), 'section_depth_exceeded');
+    run('UPDATE sections SET parent_id = ? WHERE id = ?', x, b); // b(+c) bajo x: 3 niveles, válido
+  });
+
+  it('un ciclo sigue informándose como section_cycle', () => {
+    const a = insertSection('ciclo-a');
+    const b = insertSection('ciclo-b', a);
+    expectSqliteError(assert, () => run('UPDATE sections SET parent_id = ? WHERE id = ?', b, a), 'section_cycle');
+  });
+
+  it('no se cuelga ni se reactiva una sección bajo un padre archivado', () => {
+    const p = insertSection('padre');
+    const h = insertSection('hija', p);
+    run("UPDATE sections SET status = 'archived' WHERE id = ?", h);
+    run("UPDATE sections SET status = 'archived' WHERE id = ?", p);
+    expectSqliteError(assert, () => insertSection('nueva', p), 'parent_archived');
+    expectSqliteError(assert, () => run("UPDATE sections SET status = 'active' WHERE id = ?", h), 'parent_archived');
+    const otra = insertSection('otra');
+    expectSqliteError(assert, () => run('UPDATE sections SET parent_id = ? WHERE id = ?', p, otra), 'parent_archived');
+    insertSection('archivo', p, { status: 'archived' }); // archivada bajo archivada: válido
+  });
+
+  it('solo se archiva una sección cuyas subsecciones están archivadas', () => {
+    const p = insertSection('con-hijas');
+    insertSection('hija-activa', p, { status: 'inactive' });
+    expectSqliteError(assert, () => run("UPDATE sections SET status = 'archived' WHERE id = ?", p), 'section_has_active_children');
+  });
+
+  it('las secciones del sistema se desactivan pero no se archivan', () => {
+    run("UPDATE sections SET status = 'inactive' WHERE id = 2");
+    expectSqliteError(assert, () => run("UPDATE sections SET status = 'archived' WHERE id = 2"), 'system_section_protected');
   });
 });

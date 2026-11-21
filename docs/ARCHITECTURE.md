@@ -9,7 +9,7 @@ Monolito modular sobre Node.js 24 nativo (`node:http`, `node:sqlite`, `node:cryp
 
 Toda autorización se decide en el backend.
 
-## Estado implementado (Bloques 01–04)
+## Estado implementado (Bloques 01–05)
 
 ```text
 backend/
@@ -23,12 +23,13 @@ backend/
     audit/audit.js    Escritura en audit_logs (detalles redactados)
     users/            Repositorio y API de administración de usuarios (ver docs/USERS.md)
     permissions/      Repositorio, autorizador único (can/require) y API de asignación de secciones y permisos
+    sections/         Repositorio, slugs y API de administración de secciones (ver docs/SECTIONS.md)
   database/
     connection.js     Apertura segura de SQLite (WAL, FK, defensivo, busy_timeout)
     transaction.js    withTransaction: BEGIN IMMEDIATE / SAVEPOINT anidado
     migrator.js       Migraciones versionadas con checksum, solo hacia delante
     errors.js         Clasificación de errores de SQLite (UNIQUE, triggers)
-    migrations/       001_initial_schema.sql, 002_users_permissions.sql (ver docs/DATABASE.md)
+    migrations/       001_initial_schema.sql, 002_users_permissions.sql, 003_sections.sql (ver docs/DATABASE.md)
   app.js              Servidor HTTP (sin arrancarlo): cabeceras, enrutado, origen, sesión, CSRF, errores
   server.js           Punto de entrada: config → logger → BD + esquema al día → listen → cierre ordenado
 scripts/
@@ -39,9 +40,9 @@ database/             cms.db (+ -wal/-shm) en tiempo de ejecución, no versionad
 tests/
   helpers/            utilidades compartidas (BD en memoria migrada, datos de ejemplo)
   helpers/http.js     aplicación completa en puerto efímero para pruebas HTTP
-  unit/               config, logger, migrator, transaction, password, sessions, http, router-validation, authorizer
-  integration/        servidor HTTP, esquema, conexión a archivo, CLI, arranque, auth, CLI de administración, usuarios y permisos
-  security/           sesiones, fuerza bruta, enumeración, escalada de privilegios, contraseña temporal
+  unit/               config, logger, migrator, transaction, password, sessions, http, router-validation, authorizer, sections-slug
+  integration/        servidor HTTP, esquema, conexión a archivo, CLI, arranque, auth, CLI de administración, usuarios y permisos, secciones
+  security/           sesiones, fuerza bruta, enumeración, escalada de privilegios, contraseña temporal, secciones
 docs/                 Documentación del proyecto
 ```
 
@@ -61,7 +62,6 @@ Los directorios se crean cuando tienen contenido real (no se generan carpetas o 
 ```text
 backend/
   database/repositories/                Bloques 03+ (un repositorio por módulo, en su bloque)
-  modules/sections                      Bloque 05
   modules/contents                      Bloque 06
   modules/editorial                     Bloque 07
   modules/media                         Bloque 08

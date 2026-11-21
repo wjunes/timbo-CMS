@@ -131,3 +131,37 @@ Formato: contexto → decisión → consecuencias. Las decisiones solo se revisa
 
 - **Decisión:** `middleware/router.js` admite segmentos `:nombre` que solo aceptan enteros positivos; otro valor responde `404`. `utils/validation.js` valida los cuerpos con un esquema explícito, rechaza campos desconocidos (impide la asignación masiva de `role`/`status`) y devuelve `fields: { campo: código }`.
 - **Contrato ampliado:** el login y `GET /api/auth/session` incluyen ahora `user.mustChangePassword` y `access` (`{ scope: "all" }` o `{ scope: "sections", sections: [...] }`). Se actualizó la aserción correspondiente en `tests/integration/auth.test.js` (Bloque 03).
+
+## D-027 · Presentaciones en un catálogo con clave foránea (Bloque 05)
+
+- **Decisión:** la migración 003 crea la tabla `presentations` y convierte `sections.presentation` y `section_types.default_presentation` en claves foráneas hacia ella. Antes eran un `CHECK` con una lista fija.
+- **Motivo:** SQLite no permite modificar un `CHECK` sin reconstruir la tabla. Reconstruir `sections` exige desactivar las claves foráneas y arriesga borrados en cascada de las asignaciones (`user_sections … ON DELETE CASCADE`). Con el catálogo, añadir una presentación es un `INSERT` en una migración.
+- **Cómo:** sin reconstruir tablas (`ADD COLUMN … REFERENCES`, copia, `DROP COLUMN`, `RENAME COLUMN`), probado con datos y asignaciones. SQLite no admite añadir una columna con `REFERENCES` y valor por defecto no nulo, así que `NOT NULL` se garantiza con triggers (`presentation_required`).
+- **Se mantiene:** los administradores eligen entre presentaciones existentes; no se suben plantillas ni código. Una presentación nueva requiere su plantilla en el sitio público (Bloque 09).
+
+## D-028 · El tipo de sección es inmutable (Bloque 05)
+
+- **Decisión:** trigger `section_type_immutable`; `PATCH /api/sections/:id` no acepta `type`.
+- **Motivo:** el tipo determina la estructura de los contenidos (Bloque 06). Cambiarlo con contenidos existentes los dejaría incoherentes. Se crea otra sección y se mueven los contenidos.
+
+## D-029 · Jerarquía de 3 niveles como máximo (Bloque 05)
+
+- **Decisión:** triggers en la migración 003 al insertar y al mover (nivel del padre + 1 + altura del subárbol movido ≤ 3). En un ciclo, el error sigue siendo `section_cycle`. Los recorridos están acotados.
+- **Motivo:** URLs legibles y navegación manejable en el sitio público; consultas jerárquicas acotadas.
+
+## D-030 · Semántica de estados de sección (Bloque 05)
+
+- **Decisión:** `active` (visible), `inactive` (oculta, editable y asignable: sirve para preparar una sección antes de mostrarla) y `archived` (oculta, solo lectura, no asignable). Las secciones del sistema pueden desactivarse pero no archivarse. Una sección solo se archiva si sus subsecciones ya lo están, y nada se crea ni se reactiva bajo un padre archivado. Todo ello con triggers.
+- **Borrado:** solo secciones personalizadas sin subsecciones, contenidos ni archivos. Lo demás se archiva.
+- **Ajuste de una prueba del Bloque 04:** `tests/integration/users.test.js` archivaba la sección del sistema 3 para probar `section_archived`; ahora usa una sección personalizada archivada, porque la regla nueva lo impide. La expectativa no cambia.
+
+## D-031 · No pasar a flujo directo con revisiones pendientes (Bloque 05)
+
+- **Decisión:** `approval` → `direct` responde `409 pending_reviews_exist` si hay versiones en `pending_review` en la sección.
+- **Motivo:** con flujo directo nadie revisaría esas versiones y se podrían publicar sin la aprobación con la que se enviaron. El tratamiento completo de las transiciones es del Bloque 07.
+
+## D-032 · Validación: `__proto__` y reglas nuevas (Bloque 05)
+
+- **Hallazgo:** en `utils/validation.js` (Bloque 04), una clave `"__proto__"` en el cuerpo no se rechazaba: asignarla en el objeto de errores cambiaba el prototipo en lugar de crear el campo, y el error se perdía. No era explotable (solo se copian los campos del esquema), pero incumplía el rechazo estricto de campos desconocidos.
+- **Corrección:** el objeto de errores no tiene prototipo y se convierte con `Object.fromEntries`. Prueba unitaria y de seguridad añadidas.
+- **Ampliación:** reglas `oneOf`, `integer`, `idList` y la opción `nullable`. No cambian el comportamiento de las reglas existentes.

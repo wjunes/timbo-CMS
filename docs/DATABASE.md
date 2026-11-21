@@ -36,12 +36,13 @@ unidades de red, y las carpetas sincronizadas (OneDrive, Dropbox…) pueden corr
 - Las migraciones no pueden contener `BEGIN`/`COMMIT`/`ROLLBACK`/`SAVEPOINT` propios.
 - **El servidor no migra al arrancar:** si hay migraciones pendientes o inconsistentes, no arranca. Hay que ejecutar `npm run db:migrate` explícitamente.
 
-## Modelo (migraciones 001–002)
+## Modelo (migraciones 001–003)
 
 Todas las tablas son `STRICT`. Las fechas se guardan como TEXT ISO-8601 UTC con milisegundos. Los booleanos son `INTEGER` 0/1.
 
 ```text
-section_types ──< sections ──< sections (parent_id, jerarquía)
+presentations ──< section_types ──< sections ──< sections (parent_id, jerarquía)
+(presentations también ──< sections.presentation)
                      │
 users ──< user_sections >── sections
             │
@@ -71,7 +72,8 @@ Cada una tiene su prueba en `tests/integration/schema.test.js`. Los triggers fal
 | `sections` | Prefijos reservados en el primer nivel (`admin`, `api`, `assets`, `media`, `static`, `health`, `login`, `logout`) | `CHECK` |
 | `sections` | Sin ciclos en la jerarquía | `section_cycle` (CTE recursiva) |
 | `sections` | Las secciones del sistema no se eliminan ni pierden su marca | `system_section_protected` |
-| `sections` | `workflow` ∈ {`direct`, `approval`}, por defecto `approval`; `presentation` de una lista fija | `CHECK` |
+| `sections` | `workflow` ∈ {`direct`, `approval`}, por defecto `approval` | `CHECK` |
+| `sections` | `presentation` del catálogo `presentations` (desde la migración 003; antes, lista fija) | FK + `presentation_required` |
 | `user_sections` | Solo se asignan a un `section_admin`, y solo las asigna el `general_admin` | `assignee_must_be_section_admin`, `assigner_must_be_general_admin` |
 | `user_sections` | No se editan: se revocan y se vuelven a conceder | `assignment_immutable` |
 | `user_section_permissions` | Solo hay permisos sobre secciones asignadas; al revocar la asignación se eliminan | FK compuesta → `user_sections` `ON DELETE CASCADE` |
@@ -129,7 +131,20 @@ La migración 001 carga:
 - Los 5 tipos de sección: `institutional`, `news`, `articles`, `documents`, `faq`.
 - Las 5 secciones predefinidas (`is_system = 1`, `workflow = 'approval'`): `institucional`, `noticias`, `articulos`, `biblioteca`, `preguntas-frecuentes`.
 
-El catálogo de permisos lo carga la migración 002.
+El catálogo de permisos lo carga la migración 002, y el de presentaciones, la 003.
+
+### Migración 003 (Bloque 05)
+
+| Cambio | Mecanismo / código |
+| --- | --- |
+| Catálogo `presentations` (5 valores); `sections.presentation` y `section_types.default_presentation` pasan a FK (D-027) | `ADD COLUMN … REFERENCES` + copia + `DROP COLUMN` + `RENAME COLUMN`, sin reconstruir tablas; `NOT NULL` por trigger (`presentation_required`) |
+| Tipo de sección inmutable | `section_type_immutable` |
+| Máximo 3 niveles, también al mover subárboles | `section_depth_exceeded` |
+| Nada se crea, mueve ni reactiva bajo un padre archivado | `parent_archived` |
+| Solo se archiva si las subsecciones están archivadas | `section_has_active_children` |
+| Las secciones del sistema no se archivan | `system_section_protected` |
+
+Ver [SECTIONS.md](SECTIONS.md).
 
 ## Concurrencia
 

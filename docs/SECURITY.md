@@ -2,7 +2,7 @@
 
 La seguridad forma parte del diseño desde el Bloque 01. Este documento distingue entre lo **implementado y verificado** y lo **planificado**.
 
-## Implementado (Bloques 01–04)
+## Implementado (Bloques 01–05)
 
 | Medida | Dónde | Verificación |
 | --- | --- | --- |
@@ -28,7 +28,7 @@ La seguridad forma parte del diseño desde el Bloque 01. Este documento distingu
 | Versiones enviadas a revisión inmutables; revisiones ligadas a una versión `pending_review` y de solo inserción | migración 001 | idem |
 | Auditoría de solo inserción (sin `UPDATE`/`DELETE`) | migración 001 | idem |
 | `storage_key` de multimedia sin rutas ni separadores (sin path traversal); archivos referenciados no borrables | migración 001 | idem |
-| Presentaciones y flujos de sección limitados a valores del sistema (sin plantillas arbitrarias) | migración 001 | idem |
+| Presentaciones (catálogo con FK) y flujos de sección limitados a valores del sistema, sin plantillas ni código | migraciones 001 y 003 | idem |
 | Argon2id nativo (64 MiB, t=3, p=4, PHC), comprobado con el vector de RFC 9106; parámetros almacenados acotados; concurrencia limitada (503 al saturarse) | `modules/auth/password.js` | `tests/unit/password.test.js` |
 | Política de contraseñas de 12 a 128 caracteres (NIST), normalización NFC | idem | idem |
 | Sesiones opacas de 256 bits; solo el hash SHA-256 en la base; caducidad máxima e inactividad; revocación; usuario no activo ⇒ sesión inválida | `modules/auth/sessions.js` | `tests/unit/sessions.test.js`, `tests/security/` |
@@ -46,13 +46,17 @@ La seguridad forma parte del diseño desde el Bloque 01. Este documento distingu
 | `general_admin` no gestionable por la API (`target_protected`); rol y usuario inmutables; `disabled` final | `modules/users`, migración 002 | `tests/integration/users.test.js`, `schema.test.js` |
 | Contraseña temporal con cambio obligatorio antes de operar; cambio de la propia contraseña con la actual, límite de intentos y revocación de las demás sesiones | `modules/auth/index.js`, `app.js` | `tests/security/authorization.security.test.js` |
 | Suspender, desactivar o restablecer la contraseña revoca las sesiones | `modules/users/index.js` | idem |
+| Administración de secciones solo para `general_admin` (denegaciones auditadas); un `section_admin` solo ve sus secciones asignadas (el resto, `404`) | `modules/sections` | `tests/security/sections.security.test.js` |
+| Slugs sin caracteres de ruta ni HTML; prefijos del sistema reservados en la raíz; jerarquía acotada y sin ciclos | `modules/sections/slug.js`, migraciones 001 y 003 | idem, `tests/unit/sections-slug.test.js` |
+| Las secciones del sistema no se borran ni se archivan; las secciones en uso no se borran | migración 003, `modules/sections` | `tests/integration/sections.test.js` |
+| Una clave `__proto__` en el cuerpo se rechaza como campo desconocido | `utils/validation.js` | `tests/unit/sections-slug.test.js` |
 
 ## Planificado
 
 | Medida | Bloque |
 | --- | --- |
 | Consultas SQL parametrizadas en todos los repositorios (restricciones e integridad referencial: hechas en el Bloque 02) | 03+ |
-| Aplicación del autorizador en secciones, contenidos y multimedia | 05–08 |
+| Aplicación del autorizador en contenidos y multimedia | 06–08 |
 | Validación y sanitización del contenido estructurado (Tiptap) | 06–08 |
 | Validación real de archivos (firma, MIME, extensión, tamaño), nombres aleatorios, sin ejecución | 08 |
 | CSP específica para sitio público y panel | 08–09 |

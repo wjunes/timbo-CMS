@@ -191,8 +191,11 @@ describe('API de permisos', () => {
     assert.equal(bad.status, 400);
     assert.equal((await api.json(`/api/users/${user.id}/sections/999`, { method: 'PUT' })).body.error, 'section_not_found');
 
-    app.db.prepare("UPDATE sections SET status = 'archived' WHERE id = 3").run();
-    assert.equal((await api.json(`/api/users/${user.id}/sections/3`, { method: 'PUT' })).body.error, 'section_archived');
+    // Las secciones del sistema no se archivan (migración 003): se usa una personalizada.
+    const archived = Number(
+      app.db.prepare("INSERT INTO sections (section_type_id, slug, name, presentation, status) VALUES (1, 'archivada', 'A', 'page', 'archived')").run().lastInsertRowid,
+    );
+    assert.equal((await api.json(`/api/users/${user.id}/sections/${archived}`, { method: 'PUT' })).body.error, 'section_archived');
 
     await api.json(`/api/users/${user.id}/disable`, { method: 'POST' });
     assert.equal((await api.json(`/api/users/${user.id}/sections/4`, { method: 'PUT' })).body.error, 'user_disabled');

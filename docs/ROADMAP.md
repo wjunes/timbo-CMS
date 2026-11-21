@@ -8,7 +8,7 @@ Estados: `PENDING` · `IN_PROGRESS` · `VALIDATION` · `APPROVED` · `BLOCKED`
 | 02 | SQLite, esquema inicial y migraciones | `APPROVED` |
 | 03 | Autenticación y gestión de sesiones | `APPROVED` |
 | 04 | Usuarios, roles y permisos | `APPROVED` |
-| 05 | Administración de secciones | `PENDING` |
+| 05 | Administración de secciones | `APPROVED` |
 | 06 | Motor de contenidos y versionado | `PENDING` |
 | 07 | Flujos editoriales y aprobaciones | `PENDING` |
 | 08 | Editor enriquecido y multimedia | `PENDING` |
@@ -91,3 +91,22 @@ Cada bloque requiere aprobación explícita antes de comenzar el siguiente.
 - [x] Todas las pruebas pasan (incluidas las de los Bloques 01–03) y se comprobó el flujo de extremo a extremo con el servidor real.
 - [x] Documentación actualizada.
 - [x] Revisión y aprobación del responsable del proyecto (2026-11-10).
+
+## Bloque 05 — Detalle
+
+**Alcance:** migración 003 (catálogo de presentaciones con FK, tipo inmutable, máximo 3 niveles, reglas de estado en la jerarquía, secciones del sistema no archivables); API de secciones (alta, edición, movimiento, estados, borrado seguro, orden) y de catálogos (tipos y presentaciones); visibilidad por asignación para administradores de sección; generación de slugs; ampliación de la validación; auditoría; pruebas; documentación ([SECTIONS.md](SECTIONS.md)).
+
+**Fuera de alcance:** contenidos (06), transiciones editoriales (07), renderizado público y redirecciones al cambiar slugs (09), interfaz HTML.
+
+**Criterios de aceptación:**
+
+- [x] Solo el `general_admin` crea, modifica, mueve, archiva, borra y ordena secciones; los intentos de un administrador de sección se rechazan (403, auditado) sin efectos.
+- [x] Un administrador de sección solo ve sus secciones asignadas.
+- [x] Secciones personalizadas con tipos y presentaciones del sistema; sin plantillas ni código; catálogos ampliables con una migración.
+- [x] Jerarquía sin ciclos, de 3 niveles como máximo; slugs válidos, únicos entre hermanas y sin prefijos reservados en la raíz.
+- [x] Secciones del sistema protegidas (no se borran ni se archivan); secciones en uso no se borran.
+- [x] Flujo `direct`/`approval` configurable, sin saltarse revisiones pendientes.
+- [x] Cambios de secciones auditados.
+- [x] Todas las pruebas pasan (incluidas las de los Bloques 01–04) y se comprobó el flujo de extremo a extremo con el servidor real.
+- [x] Documentación actualizada.
+- [x] Revisión y aprobación del responsable del proyecto (2026-11-21).

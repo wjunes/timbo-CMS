@@ -2,8 +2,8 @@
 
 CMS web de sitio único con múltiples secciones independientes, administración centralizada (`general_admin`) y administradores delegados por sección, con flujo editorial, versionado y gestión multimedia.
 
-> **Estado actual:** Bloque 04 (usuarios, roles y permisos) — aprobado. Siguiente: Bloque 05 (administración de secciones).
-> Hay base de datos, autenticación y API de administración de usuarios y permisos; todavía **no** hay gestión de secciones, contenidos ni interfaz. Ver [docs/ROADMAP.md](docs/ROADMAP.md).
+> **Estado actual:** Bloque 05 (administración de secciones) — aprobado. Siguiente: Bloque 06 (motor de contenidos y versionado).
+> Hay base de datos, autenticación y API de administración de usuarios, permisos y secciones; todavía **no** hay contenidos ni interfaz. Ver [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ## Requisitos
 
@@ -37,7 +37,7 @@ npm run check          # verifica Node.js, APIs nativas, configuración y estado
 | `npm run test:unit` / `npm run test:integration` | Ejecuta un subconjunto. |
 
 Con la configuración por defecto el servidor escucha en `http://127.0.0.1:3000`.
-Endpoints: `GET /health`, la API de autenticación (`/api/auth/*`, ver [docs/AUTH.md](docs/AUTH.md)) y la de administración de usuarios y permisos (`/api/users`, `/api/permissions`, ver [docs/USERS.md](docs/USERS.md)).
+Endpoints: `GET /health`, la API de autenticación (`/api/auth/*`, ver [docs/AUTH.md](docs/AUTH.md)), la de administración de usuarios y permisos (`/api/users`, `/api/permissions`, ver [docs/USERS.md](docs/USERS.md)) y la de secciones (`/api/sections`, `/api/section-types`, `/api/presentations`, ver [docs/SECTIONS.md](docs/SECTIONS.md)).
 El servidor **no arranca** si la base de datos no existe o tiene migraciones pendientes: ejecute antes `npm run db:migrate`.
 
 ## Configuración
@@ -65,6 +65,7 @@ Si la configuración es inválida, el servidor no arranca e informa de todos los
 - [Base de datos](docs/DATABASE.md)
 - [Autenticación y sesiones](docs/AUTH.md)
 - [Usuarios, roles y permisos](docs/USERS.md)
+- [Secciones](docs/SECTIONS.md)
 - [Hoja de ruta](docs/ROADMAP.md)
 - [Decisiones técnicas](docs/DECISIONS.md)
 - [Seguridad](docs/SECURITY.md)
