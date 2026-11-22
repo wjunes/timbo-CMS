@@ -6,8 +6,10 @@
  *
  * Canal de cada petición:
  *   1. Cabeceras de seguridad (toda respuesta).
- *   2. Panel (`/admin/…`): archivos estáticos de una lista cerrada, con su CSP.
- *      Resto: enrutado exacto por ruta y método (404 / 405).
+ *   2. Panel (`/admin/…`) y recursos públicos (`/assets/…`): archivos estáticos de
+ *      una lista cerrada, con su CSP. Resto: enrutado exacto por ruta y método
+ *      (404 / 405); lo que no es de la API y no tiene ruta lo atiende el sitio
+ *      público (Bloque 09: solo GET/HEAD, HTML generado en el servidor).
  *   3. Métodos que modifican estado: el origen debe ser el propio sitio (CSRF, capa 1).
  *   4. Rutas autenticadas: sesión válida (401) y, si modifican estado,
  *      cabecera X-CSRF-Token ligada a la sesión (CSRF, capa 2).
@@ -26,6 +28,7 @@ import { createAuth } from './modules/auth/index.js';
 import { createContentsModule } from './modules/contents/index.js';
 import { createEditorialModule } from './modules/editorial/index.js';
 import { createMediaModule } from './modules/media/index.js';
+import { PUBLIC_CSP, createPublicSite } from './modules/public/index.js';
 import { createStaticSite } from './middleware/static.js';
 import { verifyCsrfToken } from './modules/auth/sessions.js';
 import { createPermissionsModule } from './modules/permissions/index.js';
@@ -53,8 +56,12 @@ export function baseSecurityHeaders({ isProduction }) {
   return headers;
 }
 
-function send(req, res, { status, body, headers = {}, cookies = [], stream }, logger) {
+function send(req, res, { status, body, headers = {}, cookies = [], stream, text }, logger) {
   if (cookies.length) res.setHeader('Set-Cookie', cookies);
+  if (text !== undefined) { // HTML, XML o texto ya generados (sitio público)
+    res.writeHead(status, { ...headers, 'Content-Length': Buffer.byteLength(text) });
+    return res.end(req.method === 'HEAD' ? undefined : text);
+  }
   if (stream) {
     res.writeHead(status, headers);
     if (req.method === 'HEAD') {
@@ -97,6 +104,8 @@ const errorResponse = (status, code, headers = {}, cookies = [], details = undef
  */
 /** Directorio del panel (servido bajo /admin). */
 export const ADMIN_ROOT = path.join(PROJECT_ROOT, 'frontend', 'admin');
+/** Recursos del sitio público (servidos bajo /assets). */
+export const PUBLIC_ASSETS_ROOT = path.join(PROJECT_ROOT, 'frontend', 'public', 'assets');
 
 export function createServer({ config, logger, db, clock = Date.now, passwordHasher, adminRoot = ADMIN_ROOT }) {
   if (!db) throw new TypeError('createServer requiere una conexión a la base de datos');
@@ -110,6 +119,8 @@ export function createServer({ config, logger, db, clock = Date.now, passwordHas
   const editorialModule = createEditorialModule({ db });
   const mediaModule = createMediaModule({ db, config, logger });
   const adminSite = createStaticSite({ root: adminRoot, prefix: '/admin' });
+  const publicAssets = createStaticSite({ root: PUBLIC_ASSETS_ROOT, prefix: '/assets', csp: PUBLIC_CSP });
+  const publicSite = createPublicSite({ db, config, logger });
   const audit = createAuditLog(db);
 
   // Definición de ruta: { method, path, handler, auth?, role?, allowDuringPasswordChange? }
@@ -118,7 +129,7 @@ export function createServer({ config, logger, db, clock = Date.now, passwordHas
   router.add({ method: 'GET', path: '/health', handler: health });
   router.add({ method: 'HEAD', path: '/health', handler: health });
   for (const route of [...auth.routes, ...users.routes, ...permissionsModule.routes, ...sectionsModule.routes, ...contentsModule.routes, ...editorialModule.routes,
-    ...mediaModule.routes]) {
+    ...mediaModule.routes, ...publicSite.routes]) {
     if (route.role && !route.auth) throw new Error(`La ruta ${route.path} exige rol pero no sesión`);
     router.add(route);
   }
@@ -133,9 +144,14 @@ export function createServer({ config, logger, db, clock = Date.now, passwordHas
     }
 
     if (adminSite.owns(pathname)) return adminSite.serve(req, pathname);
+    if (publicAssets.owns(pathname)) return publicAssets.serve(req, pathname);
 
     const matched = router.match(pathname);
-    if (!matched) return errorResponse(404, 'not_found');
+    if (!matched) {
+      if (!publicSite.owns(pathname)) return errorResponse(404, 'not_found');
+      if (req.method !== 'GET' && req.method !== 'HEAD') return errorResponse(405, 'method_not_allowed', { Allow: 'GET, HEAD' });
+      return publicSite.page(req, new URL(req.url, 'http://localhost'));
+    }
     const { methods, params } = matched;
     const def = methods.get(req.method);
     if (!def) return errorResponse(405, 'method_not_allowed', { Allow: [...methods.keys()].join(', ') });

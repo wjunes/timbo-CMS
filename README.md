@@ -2,8 +2,8 @@
 
 CMS web de sitio único con múltiples secciones independientes, administración centralizada (`general_admin`) y administradores delegados por sección, con flujo editorial, versionado y gestión multimedia.
 
-> **Estado actual:** Bloque 08 (editor enriquecido y multimedia) — aprobado. Siguiente: Bloque 09 (sitio público).
-> Hay base de datos, autenticación y API de usuarios, permisos, secciones, contenidos con versionado y flujo editorial (revisión, aprobación y publicación); además, multimedia con validación real de archivos y el núcleo del panel de administración (`/admin/`) con el editor Tiptap. Todavía **no** hay sitio público. Ver [docs/ROADMAP.md](docs/ROADMAP.md).
+> **Estado actual:** Bloque 09 (sitio público y presentación adaptable) — aprobado. Siguiente: Bloque 10 (auditoría, copias de seguridad y administración general).
+> Hay base de datos, autenticación y API de usuarios, permisos, secciones, contenidos con versionado y flujo editorial (revisión, aprobación y publicación); además, multimedia con validación real de archivos y el núcleo del panel de administración (`/admin/`) con el editor Tiptap. También hay sitio público (HTML generado en el servidor, sin JavaScript) que muestra solo lo publicado. Ver [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ## Requisitos
 
@@ -39,7 +39,7 @@ npm run check          # verifica Node.js, APIs nativas, configuración y estado
 | `npm run test:unit` / `npm run test:integration` | Ejecuta un subconjunto. |
 
 Con la configuración por defecto el servidor escucha en `http://127.0.0.1:3000`.
-Endpoints: `GET /health`, la API de autenticación (`/api/auth/*`, ver [docs/AUTH.md](docs/AUTH.md)), la de administración de usuarios y permisos (`/api/users`, `/api/permissions`, ver [docs/USERS.md](docs/USERS.md)) la de secciones (`/api/sections`, `/api/section-types`, `/api/presentations`, ver [docs/SECTIONS.md](docs/SECTIONS.md)) la de contenidos y versiones (`/api/sections/:id/contents`, `/api/contents`, ver [docs/CONTENTS.md](docs/CONTENTS.md)), la del flujo editorial (transiciones en `/api/contents/:id/…`, `/api/reviews/pending`, ver [docs/EDITORIAL.md](docs/EDITORIAL.md)) y la multimedia (`/api/sections/:id/media`, `/api/media`, ver [docs/MEDIA.md](docs/MEDIA.md)). El panel está en `/admin/`.
+Endpoints: `GET /health`, la API de autenticación (`/api/auth/*`, ver [docs/AUTH.md](docs/AUTH.md)), la de administración de usuarios y permisos (`/api/users`, `/api/permissions`, ver [docs/USERS.md](docs/USERS.md)) la de secciones (`/api/sections`, `/api/section-types`, `/api/presentations`, ver [docs/SECTIONS.md](docs/SECTIONS.md)) la de contenidos y versiones (`/api/sections/:id/contents`, `/api/contents`, ver [docs/CONTENTS.md](docs/CONTENTS.md)), la del flujo editorial (transiciones en `/api/contents/:id/…`, `/api/reviews/pending`, ver [docs/EDITORIAL.md](docs/EDITORIAL.md)) y la multimedia (`/api/sections/:id/media`, `/api/media`, ver [docs/MEDIA.md](docs/MEDIA.md)). El panel está en `/admin/` y el sitio público en `/` (ver [docs/PUBLIC.md](docs/PUBLIC.md)).
 El servidor **no arranca** si la base de datos no existe o tiene migraciones pendientes: ejecute antes `npm run db:migrate`.
 
 ## Configuración
@@ -72,6 +72,7 @@ Si la configuración es inválida, el servidor no arranca e informa de todos los
 - [Contenidos y versionado](docs/CONTENTS.md)
 - [Flujos editoriales y aprobaciones](docs/EDITORIAL.md)
 - [Editor, multimedia y panel](docs/MEDIA.md)
+- [Sitio público](docs/PUBLIC.md)
 - [Hoja de ruta](docs/ROADMAP.md)
 - [Decisiones técnicas](docs/DECISIONS.md)
 - [Seguridad](docs/SECURITY.md)

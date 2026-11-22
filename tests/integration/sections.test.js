@@ -238,3 +238,21 @@ describe('API de secciones: orden', () => {
     assert.equal(same.body.changed, false);
   });
 });
+
+describe('secciones y contenidos: misma URL (D-039, Bloque 09)', () => {
+  it('ni contenido con el slug de una subsección ni subsección con el de un contenido', async () => {
+    const sub = await api.json('/api/sections', { method: 'POST', body: { name: 'Agenda', type: 'news', parentId: 2 } });
+    assert.equal(sub.status, 201);
+    let r = await api.json('/api/sections/2/contents', { method: 'POST', body: { title: 'x', slug: 'agenda' } });
+    assert.deepEqual([r.status, r.body.error], [409, 'slug_taken']);
+    // El slug generado evita el de la subsección.
+    r = await api.json('/api/sections/2/contents', { method: 'POST', body: { title: 'Agenda' } });
+    assert.equal(r.body.content.slug, 'agenda-2');
+    r = await api.json(`/api/contents/${r.body.content.id}`, { method: 'PATCH', body: { slug: 'agenda' } });
+    assert.deepEqual([r.status, r.body.error], [409, 'slug_taken']);
+    r = await api.json('/api/sections', { method: 'POST', body: { name: 'Agenda 2', slug: 'agenda-2', type: 'news', parentId: 2 } });
+    assert.deepEqual([r.status, r.body.error], [409, 'slug_taken']);
+    r = await api.json(`/api/sections/${sub.body.section.id}`, { method: 'PATCH', body: { slug: 'agenda-2' } });
+    assert.deepEqual([r.status, r.body.error], [409, 'slug_taken']);
+  });
+});

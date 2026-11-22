@@ -2,7 +2,7 @@
 
 La seguridad forma parte del diseño desde el Bloque 01. Este documento distingue entre lo **implementado y verificado** y lo **planificado**.
 
-## Implementado (Bloques 01–08)
+## Implementado (Bloques 01–09)
 
 | Medida | Dónde | Verificación |
 | --- | --- | --- |
@@ -72,6 +72,10 @@ La seguridad forma parte del diseño desde el Bloque 01. Este documento distingu
 | Imágenes del cuerpo solo de la biblioteca (`mediaId`, sin URL libre) | `modules/contents/body.js` | `tests/unit/contents-body.test.js` |
 | Renderizado con tabla cerrada de nodos, escapado contextual, sin `style` ni manejadores, `rel=noopener` con `_blank` | `modules/contents/render.js` | `tests/unit/contents-render.test.js` |
 | Panel: CSP sin nada en línea, sin marcos ni objetos; archivos de una lista cerrada (sin path traversal ni ocultos); token CSRF solo en memoria, nada en `localStorage`; datos insertados como texto | `middleware/static.js`, `frontend/admin/` | `tests/security/media.security.test.js`, `tests/unit/static.test.js`; navegador real sin violaciones de CSP |
+| Sitio público: solo lo publicado (secciones activas con ancestros activos, versión publicada) y `404` idéntico al de lo inexistente; archivos públicos solo si los usa un contenido publicado y visible | `modules/public` | `tests/integration/public-site.test.js`, `tests/security/public.security.test.js` |
+| Sitio público sin JavaScript: plantillas del sistema con escapado contextual, CSP sin scripts (también en los `304`), sin cookies | `modules/public/views.js`, `index.js` | idem; navegador real sin violaciones de CSP |
+| Rutas públicas validadas por segmentos (sin path traversal); la barra final y las redirecciones solo llevan a rutas propias (sin redirección abierta) | `modules/public/index.js` | `tests/security/public.security.test.js` |
+| Contenidos y subsecciones no comparten URL; redirecciones registradas por la base | migración 007 | `tests/integration/schema.test.js`, `sections.test.js` |
 | Dependencias del editor fijadas, con más de dos semanas de antigüedad, solo de desarrollo; bundle local (sin CDN) verificado contra ellas | `package.json`, `scripts/build-editor.js` | `tests/unit/editor-schema.test.js` |
 
 ## Planificado
@@ -79,7 +83,6 @@ La seguridad forma parte del diseño desde el Bloque 01. Este documento distingu
 | Medida | Bloque |
 | --- | --- |
 | Consultas SQL parametrizadas en todos los repositorios (restricciones e integridad referencial: hechas en el Bloque 02) | 03+ |
-| Servir al público solo los archivos de contenidos publicados; CSP del sitio público | 09 |
 | Purga controlada de archivos eliminados, huérfanos y temporales | 10 |
 | Registro de operaciones críticas en la auditoría (tabla de solo inserción: hecha en el Bloque 02); verificación de integridad (cadena de hashes) | 04+ / 10 |
 | Backups consistentes (`node:sqlite` `backup()`), manifiesto, verificación de integridad | 10 |

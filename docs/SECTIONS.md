@@ -40,7 +40,8 @@ Solo se borran físicamente las secciones **personalizadas sin subsecciones, con
 - `[a-z0-9]` en grupos separados por un único guion, hasta 100 caracteres. Únicos entre secciones hermanas.
 - Si no se indica, se genera a partir del nombre: se quitan tildes y diacríticos (`Año Académico` → `ano-academico`, `ß` → `ss`) y cualquier otro carácter pasa a guion. Si no queda nada, la respuesta es `400` (`slug: required`).
 - En el primer nivel no se admiten los prefijos reservados del sistema: `admin`, `api`, `assets`, `media`, `static`, `health`, `login` y `logout` (`slug: reserved`). La comprobación se repite al mover una sección a la raíz.
-- Cambiar el slug o el padre cambia la URL pública. No hay redirecciones automáticas (deuda para el Bloque 09).
+- Cambiar el slug o el padre cambia la URL pública. Desde el Bloque 09 la ubicación antigua responde `301` a la nueva (D-055, ver [PUBLIC.md](PUBLIC.md)).
+- Una subsección no puede tomar el slug de un contenido de su sección padre, ni al revés (`409 slug_taken`, D-058).
 
 ## Flujo editorial
 

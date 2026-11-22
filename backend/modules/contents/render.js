@@ -34,7 +34,8 @@ const alignClass = (node) => ALIGN_CLASSES.get(node.attrs?.textAlign) ?? null;
 /**
  * @param {object} doc documento validado
  * @param {{ mediaSrc: (id: number) => string, mediaHref: (id: number) => string,
- *           media?: Map<number, { width: number|null, height: number|null }> }} options
+ *           media?: Map<number, { width: number|null, height: number|null, alt?: string }> }} options
+ *   Una imagen sin `alt` en el documento usa el texto alternativo de la biblioteca, si lo hay.
  * @returns {string}
  */
 export function renderBody(doc, { mediaSrc, mediaHref, media = new Map() }) {
@@ -101,7 +102,7 @@ export function renderBody(doc, { mediaSrc, mediaHref, media = new Map() }) {
         const id = node.attrs.mediaId;
         const info = media.get(id);
         return `<img${attrs([
-          ['src', mediaSrc(id)], ['alt', node.attrs.alt ?? ''],
+          ['src', mediaSrc(id)], ['alt', node.attrs.alt || info?.alt || ''],
           ['width', info?.width ?? null], ['height', info?.height ?? null], ['loading', 'lazy'], ['decoding', 'async'],
         ])}>`;
       }

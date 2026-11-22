@@ -1,5 +1,6 @@
 /**
- * Archivos estáticos del panel (Bloque 08): `frontend/admin/` bajo `/admin/`.
+ * Archivos estáticos: el panel (Bloque 08, `frontend/admin/` bajo `/admin/`) y
+ * los recursos del sitio público (Bloque 09, `frontend/public/assets/` bajo `/assets/`).
  *
  * - Lista cerrada: al arrancar se recorren los archivos del directorio y solo
  *   esos se sirven. La ruta pedida nunca se convierte en una ruta del disco, así
@@ -49,9 +50,9 @@ function scan(root, prefix) {
 }
 
 /**
- * @param {{ root: string, prefix: string }} options
+ * @param {{ root: string, prefix: string, csp?: string }} options
  */
-export function createStaticSite({ root, prefix }) {
+export function createStaticSite({ root, prefix, csp = ADMIN_CSP }) {
   const files = scan(root, prefix);
 
   return Object.freeze({
@@ -72,7 +73,7 @@ export function createStaticSite({ root, prefix }) {
         headers: {
           'Content-Type': entry.type,
           'Content-Length': String(size),
-          'Content-Security-Policy': ADMIN_CSP,
+          'Content-Security-Policy': csp,
           'Cache-Control': 'no-cache',
         },
       };

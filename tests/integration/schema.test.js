@@ -32,15 +32,15 @@ const run = (sql, ...params) => db.prepare(sql).run(...params);
 const get = (sql, ...params) => db.prepare(sql).get(...params);
 
 describe('esquema: estructura general', () => {
-  it('crea las 15 tablas del modelo más schema_migrations, todas STRICT', () => {
+  it('crea las 17 tablas del modelo (15 + redirecciones de la 007) más schema_migrations, todas STRICT', () => {
     const tables = db
       .prepare("SELECT name, strict FROM pragma_table_list WHERE schema = 'main' AND type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY name")
       .all();
     assert.deepEqual(
       tables.map((t) => t.name),
       [
-        'audit_logs', 'content_media', 'content_versions', 'contents', 'media', 'permissions', 'presentations', 'publication_reviews',
-        'schema_migrations', 'section_types', 'sections', 'sessions', 'settings', 'user_section_permissions', 'user_sections', 'users',
+        'audit_logs', 'content_media', 'content_redirects', 'content_versions', 'contents', 'media', 'permissions', 'presentations', 'publication_reviews',
+        'schema_migrations', 'section_redirects', 'section_types', 'sections', 'sessions', 'settings', 'user_section_permissions', 'user_sections', 'users',
       ],
     );
     for (const t of tables) assert.equal(t.strict, 1, `${t.name} debe ser STRICT`);
@@ -408,7 +408,7 @@ describe('esquema: auditoría y configuración', () => {
   });
 
   it('settings exige claves válidas y valores JSON', () => {
-    run("INSERT INTO settings (key, value) VALUES ('site.name', '\"CMS\"')");
+    run("INSERT INTO settings (key, value) VALUES ('prueba.nombre', '\"CMS\"')"); // site.name ya lo crea la migración 007
     expectSqliteError(assert, () => run("INSERT INTO settings (key, value) VALUES ('site.desc', 'sin comillas')"), 'CHECK constraint failed');
     expectSqliteError(assert, () => run("INSERT INTO settings (key, value) VALUES ('Clave Mala', '1')"), 'CHECK constraint failed');
   });
@@ -724,5 +724,60 @@ describe('esquema 006: multimedia', () => {
     media(section);
     run("UPDATE sections SET status = 'archived' WHERE id = ?", section);
     expectSqliteError(assert, () => media(section), 'section_archived');
+  });
+});
+
+describe('esquema 007: sitio público', () => {
+  const NOW = "strftime('%Y-%m-%dT%H:%M:%fZ','now')";
+  const subsection = (slug, parent = 2) =>
+    Number(run("INSERT INTO sections (section_type_id, parent_id, slug, name, presentation) VALUES (2, ?, ?, 'S', 'list')", parent, slug).lastInsertRowid);
+
+  it('un contenido no toma el slug de una subsección de su sección, ni al revés (D-039)', () => {
+    subsection('agenda');
+    expectSqliteError(assert, () => insertContent(db, { userId: editor, slug: 'agenda' }), 'slug_taken');
+    insertContent(db, { userId: editor, slug: 'agenda', sectionId: 3 }); // otra sección: no colisiona
+    const { contentId } = insertContent(db, { userId: editor, slug: 'eventos' });
+    expectSqliteError(assert, () => run("UPDATE contents SET slug = 'agenda' WHERE id = ?", contentId), 'slug_taken');
+    expectSqliteError(assert, () => subsection('eventos'), 'slug_taken');
+    const s = subsection('otra');
+    expectSqliteError(assert, () => run("UPDATE sections SET slug = 'eventos' WHERE id = ?", s), 'slug_taken');
+    const moved = subsection('eventos', 3);
+    expectSqliteError(assert, () => run('UPDATE sections SET parent_id = 2 WHERE id = ?', moved), 'slug_taken');
+    // Un contenido eliminado libera el slug.
+    run(`UPDATE contents SET status = 'deleted', deleted_by = ?, deleted_at = ${NOW} WHERE id = ?`, admin, contentId);
+    run('UPDATE sections SET parent_id = 2 WHERE id = ?', moved);
+  });
+
+  it('registra la ubicación antigua al cambiar el slug o el padre de una sección y el slug de un contenido', () => {
+    const s = subsection('agenda');
+    run("UPDATE sections SET slug = 'eventos' WHERE id = ?", s);
+    run('UPDATE sections SET parent_id = 3 WHERE id = ?', s);
+    assert.deepEqual(db.prepare('SELECT old_parent_id, old_slug, section_id FROM section_redirects ORDER BY id').all().map((r) => ({ ...r })),
+      [{ old_parent_id: 2, old_slug: 'agenda', section_id: s }, { old_parent_id: 2, old_slug: 'eventos', section_id: s }]);
+    run("UPDATE sections SET slug = 'institucional-2' WHERE id = 1");
+    assert.equal(get("SELECT section_id FROM section_redirects WHERE old_parent_id IS NULL AND old_slug = 'institucional'").section_id, 1);
+
+    const { contentId } = insertContent(db, { userId: editor, slug: 'uno' });
+    run("UPDATE contents SET slug = 'dos' WHERE id = ?", contentId);
+    run("UPDATE contents SET slug = 'tres' WHERE id = ?", contentId);
+    assert.deepEqual(db.prepare('SELECT old_slug FROM content_redirects WHERE content_id = ? ORDER BY old_slug').all(contentId).map((r) => r.old_slug), ['dos', 'uno']);
+    // Si la ubicación antigua ya redirigía a otro sitio, se sustituye.
+    const { contentId: other } = insertContent(db, { userId: editor, slug: 'uno' });
+    run("UPDATE contents SET slug = 'cuatro' WHERE id = ?", other);
+    assert.equal(get("SELECT content_id FROM content_redirects WHERE section_id = 2 AND old_slug = 'uno'").content_id, other);
+  });
+
+  it('las redirecciones no se modifican', () => {
+    const { contentId } = insertContent(db, { userId: editor, slug: 'uno' });
+    run("UPDATE contents SET slug = 'dos' WHERE id = ?", contentId);
+    expectSqliteError(assert, () => run("UPDATE content_redirects SET old_slug = 'x'"), 'redirect_immutable');
+    const s = subsection('agenda');
+    run("UPDATE sections SET slug = 'eventos' WHERE id = ?", s);
+    expectSqliteError(assert, () => run('UPDATE section_redirects SET section_id = 1'), 'redirect_immutable');
+  });
+
+  it('crea los ajustes del sitio con su valor por defecto', () => {
+    assert.deepEqual(db.prepare("SELECT key, value FROM settings WHERE key LIKE 'site.%' ORDER BY key").all().map((r) => [r.key, JSON.parse(r.value)]),
+      [['site.description', 'Sitio institucional'], ['site.name', 'CMS-MULTISECCIÓN']]);
   });
 });

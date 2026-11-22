@@ -90,12 +90,12 @@ describe('conexión a archivo', () => {
       writer.exec('BEGIN IMMEDIATE');
       writer.prepare("INSERT INTO settings (key, value) VALUES ('k', '1')").run();
       // El lector no queda bloqueado y no ve la escritura sin confirmar.
-      assert.equal(reader.prepare('SELECT count(*) AS n FROM settings').get().n, 0);
+      assert.equal(reader.prepare("SELECT count(*) AS n FROM settings WHERE key = 'k'").get().n, 0);
       // Un segundo escritor no puede empezar mientras el primero mantiene el bloqueo.
       reader.exec('PRAGMA busy_timeout = 0');
       assert.throws(() => reader.exec('BEGIN IMMEDIATE'), /locked|busy/i);
       writer.exec('COMMIT');
-      assert.equal(reader.prepare('SELECT count(*) AS n FROM settings').get().n, 1);
+      assert.equal(reader.prepare("SELECT count(*) AS n FROM settings WHERE key = 'k'").get().n, 1); // la 007 ya inserta ajustes
     } finally {
       closeDatabase(reader);
       closeDatabase(writer);

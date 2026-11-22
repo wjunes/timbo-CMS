@@ -12,7 +12,7 @@ Estados: `PENDING` · `IN_PROGRESS` · `VALIDATION` · `APPROVED` · `BLOCKED`
 | 06 | Motor de contenidos y versionado | `APPROVED` |
 | 07 | Flujos editoriales y aprobaciones | `APPROVED` |
 | 08 | Editor enriquecido y multimedia | `APPROVED` |
-| 09 | Sitio público y presentación adaptable | `PENDING` |
+| 09 | Sitio público y presentación adaptable | `APPROVED` |
 | 10 | Auditoría, copias de seguridad y restauración (y pantallas de administración general, D-045) | `PENDING` |
 | 11 | Pruebas integrales, seguridad y despliegue | `PENDING` |
 
@@ -183,5 +183,37 @@ Cada bloque requiere aprobación explícita antes de comenzar el siguiente.
 - [x] Metadatos de las fotos eliminados (EXIF/GPS, XMP, comentarios), conservando la orientación.
 - [x] Panel con CSP sin nada en línea; token CSRF solo en memoria; nada en `localStorage`.
 - [x] Todas las pruebas pasan (incluidas las de los Bloques 01–07). Se comprobó el flujo de extremo a extremo con el servidor real y el panel en un navegador real.
+- [x] Documentación actualizada.
+- [x] Revisión y aprobación del responsable del proyecto (2026-11-22).
+
+## Bloque 09 — Detalle
+
+**Alcance:**
+
+- módulo `public`: HTML generado en el servidor y sin JavaScript, con portada, secciones con sus cinco presentaciones, contenidos, paginación, migas de pan, `sitemap.xml` y `robots.txt`;
+- archivos públicos (`/media/<id>`) solo de contenidos publicados y visibles;
+- CSP pública sin scripts; hoja de estilos adaptable y accesible;
+- migración 007:
+  - contenidos y subsecciones no comparten slug (D-039, D-058);
+  - redirecciones `301` al cambiar URL (D-055);
+  - ajustes `site.name` y `site.description` (D-056);
+- pruebas y documentación ([PUBLIC.md](PUBLIC.md)).
+
+**Fuera de alcance:**
+
+- búsqueda y feeds (no especificados);
+- pantalla de configuración del sitio y del resto de la administración general (Bloque 10, D-045);
+- caché en el proxy y despliegue (Bloque 11).
+
+**Criterios de aceptación:**
+
+- [x] Presentación de contenidos publicados con las cinco presentaciones del catálogo.
+- [x] Navegación entre secciones, con jerarquía, migas de pan y subsecciones.
+- [x] Diseño adaptable: sin desplazamiento horizontal en móvil (375 px) ni en escritorio, comprobado en un navegador real.
+- [x] URL jerárquicas, sin colisiones entre contenidos y subsecciones, y con redirecciones `301` al renombrar o mover.
+- [x] Acceso exclusivamente a lo publicado: ni borradores, ni revisiones, ni contenidos despublicados, archivados o eliminados, ni secciones inactivas (o con un ancestro inactivo), ni sus archivos; `404` idéntico al de lo inexistente.
+- [x] Todo dato escapado; sin JavaScript ni nada en línea; CSP sin scripts, también en las respuestas `304`.
+- [x] Sin path traversal ni redirecciones abiertas; `/api` y `/admin` intactos.
+- [x] Todas las pruebas pasan (incluidas las de los Bloques 01–08); flujo de extremo a extremo con el servidor real y un navegador.
 - [x] Documentación actualizada.
 - [x] Revisión y aprobación del responsable del proyecto (2026-11-22).

@@ -203,6 +203,7 @@ Formato: contexto → decisión → consecuencias. Las decisiones solo se revisa
 - **Riesgo detectado:** un contenido y una subsección de la misma sección pueden tener el mismo slug (`/noticias/agenda`). Hoy no hay conflicto porque no existe el sitio público.
 - **Propuesta:** decidirlo en el Bloque 09 junto con el enrutado público (precedencia o comprobación cruzada en ambos sentidos). Comprobar solo en un sentido ahora sería incompleto y exigiría modificar el Bloque 05, ya aprobado.
 - **Acordado (2026-11-21):** el responsable del proyecto aprueba aplazarlo; se resolverá en el Bloque 09.
+- **Resuelto (Bloque 09):** se prohíbe en los dos sentidos; ver D-058.
 
 ## D-040 · `content.publish` también publica versiones aprobadas en secciones `approval` (Bloque 07)
 
@@ -289,3 +290,43 @@ Formato: contexto → decisión → consecuencias. Las decisiones solo se revisa
 
 - **Decisión:** `server.requestTimeout` pasa de 30 s a 120 s.
 - **Motivo:** subir 10 MiB en 30 s exige unos 2,8 Mbit/s de subida, más de lo que tienen muchas conexiones. La protección frente a clientes lentos se mantiene: las cabeceras deben llegar en 15 s, y cada ruta limita el tamaño del cuerpo (16 KiB en las JSON).
+
+## D-054 · Sitio público generado en el servidor y sin JavaScript (Bloque 09)
+
+- **Decisión:**
+  - el HTML público lo generan plantillas del sistema que escapan todo dato;
+  - no hay JavaScript: el acordeón usa `<details>`, y la CSP pública no admite scripts;
+  - solo se lee lo publicado: secciones `active` con ancestros `active`, y la versión publicada de los contenidos `published`;
+  - todo lo demás responde un `404` idéntico al de una ruta inexistente.
+- **Motivo:** la especificación exige acceso solo a lo publicado, y que los administradores no puedan introducir código. Sin scripts, un fallo de escapado no podría ejecutar nada. El `404` idéntico no revela qué existe.
+- **Lección de la validación:** el `304` debe repetir la CSP de la respuesta. Si no, el navegador actualiza la copia guardada con la CSP base (`default-src 'none'`) y la página pierde estilos e imágenes. Las pruebas HTTP no lo detectaban; la prueba en navegador real sí, y ahora hay una prueba de regresión.
+
+## D-055 · Redirecciones permanentes al cambiar URL (Bloque 09)
+
+- **Decisión:** triggers de la migración 007 registran la ubicación anterior al cambiar el slug de un contenido, o el slug o el padre de una sección. Los registros solo se insertan, nunca se modifican. El sitio responde `301` a la ruta actual, solo si el destino es visible. Una ruta real tiene prioridad sobre una redirección.
+- **Motivo:** era la deuda del Bloque 05 («No hay redirecciones automáticas»). Los enlaces externos y los buscadores no se rompen al renombrar. Registrarlo con triggers lo hace en la misma transacción, venga el cambio de donde venga.
+
+## D-056 · Nombre y descripción del sitio en `settings` (Bloque 09)
+
+- **Decisión:** `site.name` y `site.description` se guardan en la tabla `settings`. La migración 007 los crea con un valor por defecto, y el sitio usa ese mismo valor si el ajuste falta o no es un texto.
+- **Motivo:** son datos editoriales, no de despliegue, así que no van en variables de entorno. La pantalla para editarlos llega con la configuración general (Bloque 10, D-045).
+
+## D-057 · Portada, sitemap, robots y favicon (Bloque 09)
+
+- **Decisión:**
+  - la portada muestra las últimas 6 publicaciones de las secciones de tipo noticias y artículos, y las secciones principales;
+  - `sitemap.xml` incluye solo lo visible;
+  - `robots.txt` excluye `/admin/` y `/api/`;
+  - `/favicon.ico` responde `204` hasta que exista una identidad visual.
+- **Motivo:** no lo exige la especificación, pero son prácticas básicas de un sitio público, y el `204` evita un error en cada visita. Lo aprobó el responsable del proyecto (2026-11-22).
+
+## D-058 · Contenidos y subsecciones no comparten slug (Bloque 09, resuelve D-039)
+
+- **Decisión:** un contenido no puede tomar el slug de una subsección de su sección, ni una subsección el de un contenido no eliminado de su sección padre (`409 slug_taken`). Lo garantizan la aplicación y la base, con triggers de la migración 007. El slug generado de un contenido evita los de las subsecciones.
+- **Motivo:** ambos tendrían la misma URL. Prohibirlo en los dos sentidos es lo único que no deja contenidos inaccesibles sin aviso. Exigió tocar los módulos de secciones y contenidos, ya aprobados, como se acordó al aplazar D-039.
+- **Pruebas anteriores ajustadas:**
+  - `schema.test.js`: hay 17 tablas, y la clave de ejemplo de `settings` pasa a ser `prueba.nombre`, porque `site.name` ya existe;
+  - `database.test.js`: cuenta solo su propia clave de `settings`;
+  - `server.test.js`: el 404 genérico en JSON se comprueba en `/api/…`, porque las demás rutas las atiende el sitio público (404 en HTML).
+
+  Las reglas que comprobaban siguen cumpliéndose.

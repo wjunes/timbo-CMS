@@ -56,10 +56,14 @@ describe('servidor HTTP mínimo', () => {
     assert.equal(res.headers.get('allow'), 'GET, HEAD');
   });
 
-  it('rutas desconocidas devuelven 404 genérico', async () => {
-    const res = await fetch(`${base}/no-existe`);
+  // Desde el Bloque 09, las rutas fuera de /api las atiende el sitio público (404 en HTML, ver public-site.test.js).
+  it('rutas desconocidas de la API devuelven 404 genérico', async () => {
+    const res = await fetch(`${base}/api/no-existe`);
     assert.equal(res.status, 404);
     assert.deepEqual(await res.json(), { error: 'not_found' });
+    const page = await fetch(`${base}/no-existe`);
+    assert.equal(page.status, 404);
+    assert.equal(page.headers.get('content-type'), 'text/html; charset=utf-8');
   });
 
   it('no revela tecnología ni versión del servidor', async () => {
@@ -69,7 +73,7 @@ describe('servidor HTTP mínimo', () => {
   });
 
   it('aplica cabeceras de seguridad en todas las respuestas', async () => {
-    for (const path of ['/health', '/no-existe']) {
+    for (const path of ['/health', '/api/no-existe']) {
       const res = await fetch(`${base}${path}`);
       assert.match(res.headers.get('content-security-policy'), /default-src 'none'/);
       assert.match(res.headers.get('content-security-policy'), /frame-ancestors 'none'/);

@@ -34,10 +34,10 @@ const BODY_REQUEST_LIMIT = BODY_LIMITS.maxBytes + 256 * 1024;
 const EMPTY_BODY_JSON = JSON.stringify(EMPTY_BODY);
 const MAX_SLUG_SUFFIX = 50;
 
-/** Códigos de trigger (migraciones 001/004/006) que se devuelven tal cual como 409. */
+/** Códigos de trigger (migraciones 001/004/006/007) que se devuelven tal cual como 409. */
 const TRIGGER_CONFLICTS = Object.freeze([
   'section_archived', 'content_not_editable', 'content_section_immutable', 'content_version_immutable',
-  'version_must_start_as_draft', 'media_section_mismatch',
+  'version_must_start_as_draft', 'media_section_mismatch', 'slug_taken',
 ]);
 
 function translateDbError(err, uniqueCode) {

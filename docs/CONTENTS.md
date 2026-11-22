@@ -163,5 +163,4 @@ Cada escritura se audita en la misma transacción (entidad `content`):
 
 ## Pendiente en otros bloques
 
-- Renderizado público, colisiones de slug entre contenidos y subsecciones de una misma sección y redirecciones al cambiar slugs (09, D-039).
 - Consulta y restauración de contenidos eliminados: sin bloque asignado todavía (se propondrá en el Bloque 10).

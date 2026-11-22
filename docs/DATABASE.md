@@ -36,7 +36,7 @@ unidades de red, y las carpetas sincronizadas (OneDrive, Dropbox…) pueden corr
 - Las migraciones no pueden contener `BEGIN`/`COMMIT`/`ROLLBACK`/`SAVEPOINT` propios.
 - **El servidor no migra al arrancar:** si hay migraciones pendientes o inconsistentes, no arranca. Hay que ejecutar `npm run db:migrate` explícitamente.
 
-## Modelo (migraciones 001–006)
+## Modelo (migraciones 001–007)
 
 Todas las tablas son `STRICT`. Las fechas se guardan como TEXT ISO-8601 UTC con milisegundos. Los booleanos son `INTEGER` 0/1.
 
@@ -188,6 +188,18 @@ Añade triggers y actualiza la descripción de `media.upload` (D-052). No cambia
 | No se envía a revisión ni se publica una versión que referencia un archivo eliminado | `media_not_available` |
 
 Los archivos están en `STORAGE_DIR/media/` y nunca en la base. Ver [MEDIA.md](MEDIA.md).
+
+### Migración 007 (Bloque 09)
+
+Añade dos tablas de redirecciones, triggers y los ajustes del sitio.
+
+| Regla u objeto | Código |
+| --- | --- |
+| Un contenido no toma el slug de una subsección de su sección, ni una subsección el de un contenido no eliminado de su sección padre (D-058) | `slug_taken` |
+| `section_redirects` (padre y slug anteriores → sección) y `content_redirects` (sección y slug anterior → contenido): las escriben triggers al cambiar slug o padre y no se modifican (D-055) | `redirect_immutable` |
+| `settings`: `site.name` y `site.description` con su valor por defecto (D-056) | — |
+
+Ver [PUBLIC.md](PUBLIC.md).
 
 ## Concurrencia
 

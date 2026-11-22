@@ -61,7 +61,7 @@ Hay como máximo 4 subidas simultáneas, porque cada una se procesa en memoria; 
 - `Content-Disposition: attachment` para los documentos e `inline` para las imágenes;
 - `Cache-Control: private, no-store`.
 
-El servidor nunca interpreta ni ejecuta los archivos; `storage/` no se sirve por ninguna otra ruta. El sitio público (Bloque 09) servirá solo los archivos de contenidos publicados.
+El servidor nunca interpreta ni ejecuta los archivos; `storage/` no se sirve por ninguna otra ruta. El sitio público los sirve en `/media/<id>` con las mismas cabeceras, solo si los usa la versión publicada de un contenido visible (Bloque 09, ver [PUBLIC.md](PUBLIC.md)).
 
 ### Eliminar (D-047)
 
@@ -73,7 +73,7 @@ El servidor nunca interpreta ni ejecuta los archivos; `storage/` no se sirve por
 ## Imágenes y documentos en el cuerpo (D-050)
 
 - **Imagen:** un nodo `image` con `mediaId` y `alt` (hasta 500 caracteres, sin caracteres de control), sin URL. Se admite en el documento, en citas y en celdas de tabla.
-- **Documento o imagen enlazados:** un enlace con `href` exacto `/media/<id>`. Cualquier otra ruta bajo `/media` se rechaza (`media_href_invalid`). Esa ruta será la pública del Bloque 09; en la vista previa del panel se resuelve a `/api/media/<id>/file`.
+- **Documento o imagen enlazados:** un enlace con `href` exacto `/media/<id>`. Cualquier otra ruta bajo `/media` se rechaza (`media_href_invalid`). Es la ruta pública del archivo (Bloque 09); en la vista previa del panel se resuelve a `/api/media/<id>/file`.
 - **Al crear o guardar un borrador**, cada referencia debe ser un archivo activo de la misma sección, y una imagen debe ser una imagen. Si no, la respuesta es `400 validation_failed` con `fields.body` igual a `media_not_available` o `media_not_image`, junto con `bodyPath` y `mediaId`. Las referencias se registran en `content_media` en la misma transacción.
 - **Una versión nueva** hereda las referencias de su versión de origen.
 - **Al enviar a revisión o publicar** se vuelve a comprobar, con `409 media_not_available` si un archivo ya no está disponible. Puede ocurrir con un borrador creado a partir de una versión archivada cuyo archivo se eliminó después.

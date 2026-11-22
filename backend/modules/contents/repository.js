@@ -47,8 +47,11 @@ export function createContentRepository(db) {
     SELECT ${summaryColumns} ${summaryFrom}
     WHERE c.section_id = ? AND c.status <> 'deleted' ORDER BY c.sort_order, c.id`);
   const byId = db.prepare(`SELECT ${summaryColumns} ${summaryFrom} WHERE c.id = ?`);
+  // Un slug está ocupado por otro contenido no eliminado o por una subsección (misma URL, D-039).
   const slugTaken = db.prepare(`
-    SELECT 1 AS ok FROM contents WHERE section_id = ? AND slug = ? AND status <> 'deleted' AND id IS NOT ?`);
+    SELECT 1 AS ok FROM contents WHERE section_id = :section AND slug = :slug AND status <> 'deleted' AND id IS NOT :except
+    UNION ALL
+    SELECT 1 FROM sections WHERE parent_id = :section AND slug = :slug`);
   const nextSortOrder = db.prepare('SELECT coalesce(max(sort_order), 0) + 10 AS n FROM contents WHERE section_id = ?');
   const insertContent = db.prepare('INSERT INTO contents (section_id, slug, sort_order, created_by) VALUES (?, ?, ?, ?)');
   const touch = db.prepare(`UPDATE contents SET updated_at = ${NOW} WHERE id = ?`);
@@ -84,7 +87,7 @@ export function createContentRepository(db) {
   return Object.freeze({
     listBySection: (sectionId) => listBySection.all(sectionId),
     findById: (id) => byId.get(id),
-    isSlugTaken: (sectionId, slug, exceptId = null) => slugTaken.get(sectionId, slug, exceptId) !== undefined,
+    isSlugTaken: (sectionId, slug, exceptId = null) => slugTaken.get({ section: sectionId, slug, except: exceptId }) !== undefined,
 
     /** Crea el contenido con su versión 1 en borrador. Debe llamarse dentro de una transacción. */
     create({ sectionId, slug, title, summary, body, userId }) {

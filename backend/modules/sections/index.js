@@ -27,9 +27,13 @@ const STATUS_ACTIONS = Object.freeze({
   archive: { from: ['active', 'inactive'], to: 'archived' },
 });
 
-/** Códigos de trigger (migración 001/003) que se devuelven tal cual como 409. */
+/**
+ * Códigos de trigger (migraciones 001/003/007) que se devuelven tal cual como 409.
+ * `slug_taken` (007): una subsección no toma el slug de un contenido de su sección padre (D-039).
+ */
 const TRIGGER_CONFLICTS = Object.freeze([
   'section_cycle', 'section_depth_exceeded', 'parent_archived', 'section_has_active_children', 'system_section_protected',
+  'slug_taken',
 ]);
 
 function translateDbError(err) {
