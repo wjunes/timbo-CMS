@@ -165,3 +165,41 @@ Formato: contexto → decisión → consecuencias. Las decisiones solo se revisa
 - **Hallazgo:** en `utils/validation.js` (Bloque 04), una clave `"__proto__"` en el cuerpo no se rechazaba: asignarla en el objeto de errores cambiaba el prototipo en lugar de crear el campo, y el error se perdía. No era explotable (solo se copian los campos del esquema), pero incumplía el rechazo estricto de campos desconocidos.
 - **Corrección:** el objeto de errores no tiene prototipo y se convierte con `Object.fromEntries`. Prueba unitaria y de seguridad añadidas.
 - **Ampliación:** reglas `oneOf`, `integer`, `idList` y la opción `nullable`. No cambian el comportamiento de las reglas existentes.
+
+## D-033 · Validación estricta del cuerpo Tiptap desde el Bloque 06
+
+- **Decisión:** el backend valida el cuerpo en cada guardado con una lista blanca de nodos, marcas y atributos con valores acotados, y rechaza lo que no encaja indicando la ruta (`bodyPath`). No se corrige ni se descarta nada en silencio: lo guardado es exactamente lo que envió el autor.
+- **Motivo:** no guardar nunca contenido sin validar, aunque el editor llegue en el Bloque 08. Corregir en silencio ocultaría errores del cliente y haría que el autor viera algo distinto de lo guardado.
+- **Alcance:** texto, títulos (2–4), listas, citas, tablas, saltos de línea; negrita, cursiva, subrayado y enlaces (`http(s)`, `mailto`, rutas propias, anclas). Se admiten los atributos por defecto que emite Tiptap. Las imágenes se añaden en el Bloque 08. El sitio público (Bloque 09) escapará todo al renderizar.
+
+## D-034 · Un contenido no cambia de sección (Bloque 06)
+
+- **Decisión:** trigger `content_section_immutable`; la API no acepta `sectionId` al editar.
+- **Motivo:** los permisos se conceden por sección; mover un contenido cambiaría quién puede verlo y editarlo, y su URL pública. Si hiciera falta, se planteará como operación propia y auditada.
+
+## D-035 · Borrado lógico de contenidos (Bloque 06)
+
+- **Decisión:** `DELETE /api/contents/:id` marca `status = 'deleted'` con `deleted_by`/`deleted_at`; las versiones se conservan; el slug queda libre. El trigger `content_delete_forbidden` impide el borrado físico.
+- **Ajuste de una prueba del Bloque 02:** `tests/integration/schema.test.js` («el borrador es editable y descartable») borraba físicamente el contenido; ahora comprueba que la base lo impide. El resto de la prueba no cambia.
+- **Pendiente:** consulta y restauración de eliminados (sin bloque asignado; se propondrá más adelante).
+
+## D-036 · El autor edita sus propios borradores con `content.create` (Bloque 06)
+
+- **Decisión:** editar o descartar un borrador exige `content.edit`, o `content.create` si el borrador lo creó el propio usuario. Crear versiones nuevas, cambiar slug u orden exige `content.edit`.
+- **Motivo:** sin esto, quien solo puede crear no podría corregir lo que acaba de crear.
+
+## D-037 · Contenidos publicados o en revisión no se eliminan (Bloque 06)
+
+- **Decisión:** `409 content_published` (despublicar antes, Bloque 07) y `409 content_in_review` si hay una versión `pending_review` o `approved`. La base ya impedía el primer caso (`CHECK` de `published_version_id`).
+- **Motivo:** no retirar del sitio público ni dejar revisiones huérfanas con una operación de edición.
+
+## D-038 · Descarte de borradores y numeración (Bloque 06)
+
+- **Decisión:** un borrador se descarta con borrado físico (lo permitía ya la migración 001), salvo que sea la única versión (`409 only_version`: se elimina el contenido). El número de versión es el máximo existente + 1, así que el de un borrador descartado puede reutilizarse.
+- **Motivo:** un borrador descartado nunca fue revisado ni publicado; la auditoría (`version.discard`, con su número e id) conserva el rastro. La entidad de auditoría es el contenido, cuyo id no se reutiliza porque no se borra.
+
+## D-039 · Colisión de slugs entre contenidos y subsecciones (aplazada al Bloque 09)
+
+- **Riesgo detectado:** un contenido y una subsección de la misma sección pueden tener el mismo slug (`/noticias/agenda`). Hoy no hay conflicto porque no existe el sitio público.
+- **Propuesta:** decidirlo en el Bloque 09 junto con el enrutado público (precedencia o comprobación cruzada en ambos sentidos). Comprobar solo en un sentido ahora sería incompleto y exigiría modificar el Bloque 05, ya aprobado.
+- **Acordado (2026-11-21):** el responsable del proyecto aprueba aplazarlo; se resolverá en el Bloque 09.

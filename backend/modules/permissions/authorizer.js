@@ -7,6 +7,8 @@
  * - section_admin: activo, con la sección asignada y el permiso concedido en ella.
  * - Un código de permiso inexistente es un error de programación (lanza TypeError),
  *   no un "no autorizado" silencioso.
+ * - `canView` (Bloque 06): ver una sección y sus contenidos no exige un permiso
+ *   concreto, solo tenerla asignada (o ser general_admin activo).
  */
 import { HttpError } from '../../middleware/http.js';
 import { createPermissionRepository } from './repository.js';
@@ -17,6 +19,13 @@ export function createAuthorizer(db) {
   const known = new Set(permissions.codes());
   const userState = db.prepare('SELECT role, status FROM users WHERE id = ?');
 
+  /** Rol del usuario si está activo; null en otro caso. */
+  function activeRole(user) {
+    if (!Number.isSafeInteger(user?.id)) return null;
+    const state = userState.get(user.id);
+    return state?.status === 'active' ? state.role : null;
+  }
+
   /**
    * @param {{ id: number }} user
    * @param {string} code
@@ -24,11 +33,21 @@ export function createAuthorizer(db) {
    */
   function can(user, code, sectionId) {
     if (!known.has(code)) throw new TypeError(`Permiso desconocido: ${code}`);
-    if (!Number.isSafeInteger(user?.id) || !Number.isSafeInteger(sectionId)) return false;
-    const state = userState.get(user.id);
-    if (!state || state.status !== 'active') return false;
-    if (state.role === 'general_admin') return true;
-    return permissions.hasGrant(user.id, sectionId, code);
+    if (!Number.isSafeInteger(sectionId)) return false;
+    const role = activeRole(user);
+    if (role === 'general_admin') return true;
+    return role === 'section_admin' && permissions.hasGrant(user.id, sectionId, code);
+  }
+
+  /**
+   * @param {{ id: number }} user
+   * @param {number} sectionId
+   */
+  function canView(user, sectionId) {
+    if (!Number.isSafeInteger(sectionId)) return false;
+    const role = activeRole(user);
+    if (role === 'general_admin') return true;
+    return role === 'section_admin' && permissions.isAssigned(user.id, sectionId);
   }
 
   /** Igual que `can`, pero lanza HttpError 403 `forbidden`. */
@@ -36,5 +55,5 @@ export function createAuthorizer(db) {
     if (!can(user, code, sectionId)) throw new HttpError(403, 'forbidden');
   }
 
-  return Object.freeze({ can, require });
+  return Object.freeze({ can, canView, require });
 }

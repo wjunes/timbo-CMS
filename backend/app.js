@@ -19,6 +19,7 @@ import { HttpError, UNSAFE_METHODS, clientIp, isSameOriginRequest } from './midd
 import { createRouter } from './middleware/router.js';
 import { createAuditLog } from './modules/audit/audit.js';
 import { createAuth } from './modules/auth/index.js';
+import { createContentsModule } from './modules/contents/index.js';
 import { verifyCsrfToken } from './modules/auth/sessions.js';
 import { createPermissionsModule } from './modules/permissions/index.js';
 import { createSectionsModule } from './modules/sections/index.js';
@@ -82,6 +83,7 @@ export function createServer({ config, logger, db, clock = Date.now, passwordHas
   const users = createUsersModule({ db, sessions: auth.sessions, passwordHasher: auth.passwordHasher });
   const permissionsModule = createPermissionsModule({ db, loadManagedUser: users.loadManagedUser });
   const sectionsModule = createSectionsModule({ db });
+  const contentsModule = createContentsModule({ db });
   const audit = createAuditLog(db);
 
   // Definición de ruta: { method, path, handler, auth?, role?, allowDuringPasswordChange? }
@@ -89,7 +91,7 @@ export function createServer({ config, logger, db, clock = Date.now, passwordHas
   const health = () => ({ status: 200, body: { status: 'ok' } });
   router.add({ method: 'GET', path: '/health', handler: health });
   router.add({ method: 'HEAD', path: '/health', handler: health });
-  for (const route of [...auth.routes, ...users.routes, ...permissionsModule.routes, ...sectionsModule.routes]) {
+  for (const route of [...auth.routes, ...users.routes, ...permissionsModule.routes, ...sectionsModule.routes, ...contentsModule.routes]) {
     if (route.role && !route.auth) throw new Error(`La ruta ${route.path} exige rol pero no sesión`);
     router.add(route);
   }

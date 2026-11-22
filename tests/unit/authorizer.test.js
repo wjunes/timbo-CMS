@@ -64,4 +64,22 @@ describe('createAuthorizer', () => {
     createPermissionRepository(db).revoke(editor, NEWS);
     assert.equal(authz.can({ id: editor }, 'content.create', NEWS), false);
   });
+
+  it('canView: general_admin ve todo; section_admin solo lo asignado, aunque no tenga permisos', () => {
+    const viewer = insertUser(db, { username: 'lector' });
+    createPermissionRepository(db).assign(viewer, ARTICLES, admin);
+    assert.equal(authz.canView({ id: admin }, ARTICLES), true);
+    assert.equal(authz.canView({ id: editor }, NEWS), true);
+    assert.equal(authz.canView({ id: editor }, ARTICLES), false);
+    assert.equal(authz.canView({ id: viewer }, ARTICLES), true);
+    assert.equal(authz.can({ id: viewer }, 'content.create', ARTICLES), false);
+  });
+
+  it('canView: usuarios no activos, inexistentes o identificadores inválidos no ven nada', () => {
+    db.prepare("UPDATE users SET status = 'suspended' WHERE id = ?").run(editor);
+    assert.equal(authz.canView({ id: editor }, NEWS), false);
+    assert.equal(authz.canView({ id: 9999 }, NEWS), false);
+    assert.equal(authz.canView({ id: admin, role: 'general_admin' }, '2'), false);
+    assert.equal(authz.canView(undefined, NEWS), false);
+  });
 });

@@ -36,7 +36,7 @@ unidades de red, y las carpetas sincronizadas (OneDrive, Dropbox…) pueden corr
 - Las migraciones no pueden contener `BEGIN`/`COMMIT`/`ROLLBACK`/`SAVEPOINT` propios.
 - **El servidor no migra al arrancar:** si hay migraciones pendientes o inconsistentes, no arranca. Hay que ejecutar `npm run db:migrate` explícitamente.
 
-## Modelo (migraciones 001–003)
+## Modelo (migraciones 001–004)
 
 Todas las tablas son `STRICT`. Las fechas se guardan como TEXT ISO-8601 UTC con milisegundos. Los booleanos son `INTEGER` 0/1.
 
@@ -146,10 +146,25 @@ El catálogo de permisos lo carga la migración 002, y el de presentaciones, la 
 
 Ver [SECTIONS.md](SECTIONS.md).
 
+### Migración 004 (Bloque 06)
+
+Solo añade triggers; no cambia tablas ni datos.
+
+| Regla | Código |
+| --- | --- |
+| Un contenido no cambia de sección (D-034) | `content_section_immutable` |
+| Los contenidos no se borran físicamente; el borrado es lógico (D-035) | `content_delete_forbidden` |
+| Una sección archivada no recibe contenidos | `section_archived` |
+| Las versiones nacen como borrador | `version_must_start_as_draft` |
+| Sin versiones nuevas ni edición de borradores en secciones archivadas | `section_archived` |
+| … ni en contenidos archivados o eliminados | `content_not_editable` |
+
+Ver [CONTENTS.md](CONTENTS.md).
+
 ## Concurrencia
 
 - WAL: muchos lectores y un único escritor. Toda escritura de varias sentencias usa `withTransaction` (`BEGIN IMMEDIATE`).
-- Las ediciones simultáneas de un mismo borrador se controlan con `content_versions.revision`, de forma optimista: `UPDATE … SET revision = revision + 1 WHERE id = ? AND revision = ?`. La aplicación lo usa a partir del Bloque 06.
+- Las ediciones simultáneas de un mismo borrador se controlan con `content_versions.revision`, de forma optimista: `UPDATE … SET revision = revision + 1 WHERE id = ? AND revision = ?`. La aplicación lo usa desde el Bloque 06 (`409 revision_conflict`).
 - `node:sqlite` es síncrono: las consultas bloquean el bucle de eventos. Es aceptable para el volumen previsto si se mantienen consultas indexadas y transacciones cortas.
 
 ## Limitaciones conocidas

@@ -235,7 +235,8 @@ describe('esquema: contenidos y versiones', () => {
     const { contentId, versionId } = insertContent(db, { userId: editor });
     run("UPDATE content_versions SET title = 'Nuevo', revision = revision + 1 WHERE id = ?", versionId);
     run('DELETE FROM content_versions WHERE id = ?', versionId);
-    run('DELETE FROM contents WHERE id = ?', contentId);
+    // Desde la migración 004 el contenido no se borra físicamente (borrado lógico, D-035).
+    expectSqliteError(assert, () => run('DELETE FROM contents WHERE id = ?', contentId), 'content_delete_forbidden');
   });
 
   it('una versión enviada a revisión es inmutable, no vuelve a borrador y no se elimina', () => {
@@ -500,5 +501,59 @@ describe('esquema 003: secciones', () => {
   it('las secciones del sistema se desactivan pero no se archivan', () => {
     run("UPDATE sections SET status = 'inactive' WHERE id = 2");
     expectSqliteError(assert, () => run("UPDATE sections SET status = 'archived' WHERE id = 2"), 'system_section_protected');
+  });
+});
+
+describe('esquema 004: contenidos', () => {
+  const archivedSection = () =>
+    Number(
+      run("INSERT INTO sections (section_type_id, slug, name, presentation, status) VALUES (1, 'archivo-004', 'A', 'page', 'archived')")
+        .lastInsertRowid,
+    );
+
+  it('un contenido no cambia de sección ni se borra físicamente', () => {
+    const { contentId } = insertContent(db, { userId: editor });
+    expectSqliteError(assert, () => run('UPDATE contents SET section_id = 3 WHERE id = ?', contentId), 'content_section_immutable');
+    expectSqliteError(assert, () => run('DELETE FROM contents WHERE id = ?', contentId), 'content_delete_forbidden');
+    // El borrado lógico sí está permitido y libera el slug.
+    run("UPDATE contents SET status = 'deleted', deleted_by = ?, deleted_at = 'x' WHERE id = ?", editor, contentId);
+    const slug = get('SELECT slug FROM contents WHERE id = ?', contentId).slug;
+    insertContent(db, { userId: editor, slug });
+  });
+
+  it('una sección archivada no recibe contenidos, versiones ni ediciones de borradores', () => {
+    const { contentId, versionId } = insertContent(db, { userId: editor, sectionId: 1 });
+    expectSqliteError(assert, () => insertContent(db, { userId: editor, sectionId: archivedSection() }), 'section_archived');
+    // Sección que se archiva cuando ya tiene un borrador.
+    const s = Number(run("INSERT INTO sections (section_type_id, slug, name, presentation) VALUES (1, 'temporal', 'T', 'page')").lastInsertRowid);
+    const c2 = insertContent(db, { userId: editor, sectionId: s });
+    run("UPDATE sections SET status = 'archived' WHERE id = ?", s);
+    expectSqliteError(assert, () => run("UPDATE content_versions SET title = 'X' WHERE id = ?", c2.versionId), 'section_archived');
+    publishVersion(db, { contentId: c2.contentId, versionId: c2.versionId, userId: admin });
+    expectSqliteError(assert, () => insertVersion(db, { contentId: c2.contentId, userId: editor, number: 2 }), 'section_archived');
+    // En una sección activa todo sigue funcionando.
+    run("UPDATE content_versions SET title = 'Y' WHERE id = ?", versionId);
+    assert.ok(contentId);
+  });
+
+  it('un contenido archivado o eliminado no recibe versiones ni ediciones', () => {
+    const { contentId, versionId } = insertContent(db, { userId: editor });
+    run("UPDATE contents SET status = 'archived' WHERE id = ?", contentId);
+    expectSqliteError(assert, () => run("UPDATE content_versions SET body = '{\"type\":\"doc\"}' WHERE id = ?", versionId), 'content_not_editable');
+    run('DELETE FROM content_versions WHERE id = ?', versionId);
+    expectSqliteError(assert, () => insertVersion(db, { contentId, userId: editor, number: 2 }), 'content_not_editable');
+  });
+
+  it('las versiones nacen como borrador', () => {
+    const { contentId } = insertContent(db, { userId: editor });
+    expectSqliteError(
+      assert,
+      () =>
+        run(
+          "INSERT INTO content_versions (content_id, version_number, title, status, submitted_by, submitted_at, created_by) VALUES (?, 2, 'T', 'changes_requested', ?, 'x', ?)",
+          contentId, editor, editor,
+        ),
+      'version_must_start_as_draft',
+    );
   });
 });

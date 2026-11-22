@@ -9,7 +9,7 @@ Estados: `PENDING` · `IN_PROGRESS` · `VALIDATION` · `APPROVED` · `BLOCKED`
 | 03 | Autenticación y gestión de sesiones | `APPROVED` |
 | 04 | Usuarios, roles y permisos | `APPROVED` |
 | 05 | Administración de secciones | `APPROVED` |
-| 06 | Motor de contenidos y versionado | `PENDING` |
+| 06 | Motor de contenidos y versionado | `APPROVED` |
 | 07 | Flujos editoriales y aprobaciones | `PENDING` |
 | 08 | Editor enriquecido y multimedia | `PENDING` |
 | 09 | Sitio público y presentación adaptable | `PENDING` |
@@ -108,5 +108,25 @@ Cada bloque requiere aprobación explícita antes de comenzar el siguiente.
 - [x] Flujo `direct`/`approval` configurable, sin saltarse revisiones pendientes.
 - [x] Cambios de secciones auditados.
 - [x] Todas las pruebas pasan (incluidas las de los Bloques 01–04) y se comprobó el flujo de extremo a extremo con el servidor real.
+- [x] Documentación actualizada.
+- [x] Revisión y aprobación del responsable del proyecto (2026-11-21).
+
+## Bloque 06 — Detalle
+
+**Alcance:** migración 004 (contenidos sin cambio de sección ni borrado físico; versiones que nacen como borrador; secciones archivadas y contenidos archivados o eliminados de solo lectura); API de contenidos (alta con versión 1, lectura, slug y orden, borrado lógico) y de versiones (historial, consulta, nueva versión basada en otra, guardado de borradores con control de revisión, descarte); validación estricta del cuerpo Tiptap; `canView` en el autorizador; auditoría; pruebas; documentación ([CONTENTS.md](CONTENTS.md)).
+
+**Fuera de alcance:** transiciones editoriales (07), editor e imágenes (08), renderizado público y colisiones de slug con subsecciones (09), interfaz HTML.
+
+**Criterios de aceptación:**
+
+- [x] Un contenido se crea con su versión 1 en borrador; estado del contenido y de las versiones separados.
+- [x] Editar nunca sobrescribe la versión publicada; las versiones anteriores se conservan y el historial se consulta.
+- [x] Una sola versión en curso; las versiones nuevas parten de la publicada, de una rechazada o de una anterior.
+- [x] Las ediciones simultáneas no se pisan (`revision_conflict`).
+- [x] Se registra quién crea y modifica cada versión, y cada escritura se audita (sin el cuerpo).
+- [x] Autorización en el backend por sección y permiso; sin acceso entre secciones; denegaciones auditadas.
+- [x] El cuerpo solo admite nodos, marcas, atributos y enlaces de la lista blanca; lo demás se rechaza con su ruta.
+- [x] Borrado lógico; los contenidos publicados o en revisión no se eliminan.
+- [x] Todas las pruebas pasan (incluidas las de los Bloques 01–05) y se comprobó el flujo de extremo a extremo con el servidor real.
 - [x] Documentación actualizada.
 - [x] Revisión y aprobación del responsable del proyecto (2026-11-21).

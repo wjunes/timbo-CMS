@@ -2,7 +2,7 @@
 
 La seguridad forma parte del diseño desde el Bloque 01. Este documento distingue entre lo **implementado y verificado** y lo **planificado**.
 
-## Implementado (Bloques 01–05)
+## Implementado (Bloques 01–06)
 
 | Medida | Dónde | Verificación |
 | --- | --- | --- |
@@ -50,14 +50,21 @@ La seguridad forma parte del diseño desde el Bloque 01. Este documento distingu
 | Slugs sin caracteres de ruta ni HTML; prefijos del sistema reservados en la raíz; jerarquía acotada y sin ciclos | `modules/sections/slug.js`, migraciones 001 y 003 | idem, `tests/unit/sections-slug.test.js` |
 | Las secciones del sistema no se borran ni se archivan; las secciones en uso no se borran | migración 003, `modules/sections` | `tests/integration/sections.test.js` |
 | Una clave `__proto__` en el cuerpo se rechaza como campo desconocido | `utils/validation.js` | `tests/unit/sections-slug.test.js` |
+| Contenidos: autorizador en cada operación (ver con asignación; crear, editar y eliminar con su permiso); secciones no visibles responden `404`; denegaciones auditadas con el permiso que faltaba | `modules/contents`, `modules/permissions/authorizer.js` | `tests/security/contents.security.test.js`, `tests/unit/authorizer.test.js` |
+| Cuerpo Tiptap validado con lista blanca estricta de nodos, marcas y atributos; se rechaza (no se corrige) lo no admitido; sin HTML en el documento | `modules/contents/body.js` | `tests/unit/contents-body.test.js` |
+| Enlaces solo `http(s)`, `mailto`, rutas propias y anclas (`javascript:`, `data:`, `//`, credenciales rechazados) | idem | idem |
+| Límites de profundidad, nodos, texto y tamaño del cuerpo; petición acotada | idem, `modules/contents/index.js` | idem, `tests/integration/contents.test.js` |
+| Sin asignación masiva de estado, autoría, sección ni punteros de publicación | `modules/contents` | `tests/security/contents.security.test.js` |
+| La versión publicada nunca se sobrescribe; borradores con control de concurrencia optimista | migraciones 001 y 004, `modules/contents` | `tests/integration/contents.test.js` |
+| Contenidos sin borrado físico ni cambio de sección; secciones archivadas de solo lectura | migración 004 | `tests/integration/schema.test.js` |
 
 ## Planificado
 
 | Medida | Bloque |
 | --- | --- |
 | Consultas SQL parametrizadas en todos los repositorios (restricciones e integridad referencial: hechas en el Bloque 02) | 03+ |
-| Aplicación del autorizador en contenidos y multimedia | 06–08 |
-| Validación y sanitización del contenido estructurado (Tiptap) | 06–08 |
+| Aplicación del autorizador en las transiciones editoriales y la multimedia | 07–08 |
+| Imágenes en el cuerpo (Tiptap) y escapado al renderizar | 08–09 |
 | Validación real de archivos (firma, MIME, extensión, tamaño), nombres aleatorios, sin ejecución | 08 |
 | CSP específica para sitio público y panel | 08–09 |
 | Registro de operaciones críticas en la auditoría (tabla de solo inserción: hecha en el Bloque 02); verificación de integridad (cadena de hashes) | 04+ / 10 |
