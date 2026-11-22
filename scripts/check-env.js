@@ -1,6 +1,8 @@
 /**
  * Verificación del entorno de ejecución: versión de Node.js, APIs nativas
- * requeridas por el proyecto y validez de la configuración.
+ * requeridas por el proyecto y validez de la configuración. Con
+ * NODE_ENV=production añade las comprobaciones de despliegue (Bloque 11,
+ * ver docs/DEPLOYMENT.md).
  * Sale con código 1 si alguna comprobación falla.
  */
 import fs from 'node:fs';
@@ -97,6 +99,64 @@ check('Base de datos', () => {
     closeDatabase(db);
   }
 });
+
+// --- Despliegue (Bloque 11): solo en producción -------------------------------
+let prod = null;
+try {
+  const c = loadConfig();
+  if (c.isProduction) prod = c;
+} catch {
+  // La configuración inválida ya se ha informado.
+}
+
+if (prod) {
+  check('Producción: escucha solo en local, detrás del proxy HTTPS', () => {
+    if (!['127.0.0.1', '::1', 'localhost'].includes(prod.host)) {
+      throw new Error(`HOST=${prod.host}: el servidor quedaría accesible por HTTP sin pasar por el proxy; use 127.0.0.1`);
+    }
+    return `${prod.host}:${prod.port}, URL pública ${prod.baseUrl}`;
+  });
+
+  check('Producción: IP real del cliente (TRUST_PROXY)', () => {
+    // Sin ella, todas las peticiones parecen venir del proxy: los límites por IP
+    // se aplicarían a todos los visitantes a la vez.
+    if (!prod.trustProxy) throw new Error('TRUST_PROXY=false detrás de un proxy: active TRUST_PROXY=true');
+    return 'TRUST_PROXY=true';
+  });
+
+  check('Producción: nivel de registro', () => {
+    if (prod.logLevel === 'debug') throw new Error('LOG_LEVEL=debug no es adecuado en producción');
+    return prod.logLevel;
+  });
+
+  check('Producción: almacenamiento escribible', () => {
+    fs.mkdirSync(prod.storageDir, { recursive: true });
+    const probe = `${prod.storageDir}/.check-${process.pid}`;
+    fs.writeFileSync(probe, '');
+    fs.rmSync(probe);
+    return prod.storageDir;
+  });
+
+  check('Producción: administrador general', () => {
+    if (!dbModules || !fs.existsSync(prod.databasePath)) throw new Error('la base de datos no existe');
+    const [{ closeDatabase, openDatabase }] = dbModules;
+    const db = openDatabase(prod.databasePath, { create: false });
+    try {
+      const row = db.prepare("SELECT count(*) AS n FROM users WHERE role = 'general_admin' AND status = 'active'").get();
+      if (!row.n) throw new Error('no existe; ejecute "npm run admin:create"');
+      return 'existe';
+    } finally {
+      closeDatabase(db);
+    }
+  });
+
+  check('Producción: copias de seguridad', () => {
+    const dir = `${prod.storageDir}/backups`;
+    const ids = fs.existsSync(dir) ? fs.readdirSync(dir).filter((n) => /^d{14}$/.test(n)).sort() : [];
+    const auto = prod.backup.intervalHours ? `automáticas cada ${prod.backup.intervalHours} h, se conservan ${prod.backup.keep}` : 'automáticas DESACTIVADAS (prográmelas con el sistema)';
+    return `${auto}; ${ids.length ? `última: ${ids.at(-1)}` : 'todavía ninguna'}. Recuerde copiarlas fuera del servidor.`;
+  });
+}
 
 for (const r of results) {
   process.stdout.write(`${r.ok ? '[OK]  ' : '[FAIL]'} ${r.name}: ${r.detail}\n`);

@@ -75,4 +75,4 @@ Las páginas, el sitemap y los archivos llevan `ETag` y `Cache-Control: no-cache
 
 - Las fechas se muestran en la zona horaria del servidor.
 - El sitio no tiene búsqueda ni feeds RSS: no están en la especificación.
-- El árbol de secciones se lee en cada petición. Es pequeño (3 niveles), pero un sitio con mucho tráfico necesitaría una caché en el proxy inverso (Bloque 11).
+- El árbol de secciones se lee en cada petición. Es pequeño (3 niveles) y el rendimiento medido es suficiente (ver [ROADMAP.md](ROADMAP.md#bloque-11--detalle)); no se configura caché intermedia (ver `deploy/Caddyfile`).

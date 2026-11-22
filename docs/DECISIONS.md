@@ -353,7 +353,7 @@ Formato: contexto → decisión → consecuencias. Las decisiones solo se revisa
 - **Motivo:**
   - todos los módulos mantienen abierta la conexión a la base: cambiarla en caliente exigiría reconstruir código aprobado y podría dejar peticiones a medias;
   - restaurar es una operación de mantenimiento poco frecuente que debe poder hacerse aunque el panel no funcione.
-- **Sin descarga desde el panel:** las copias contienen los hashes de las contraseñas y pueden ser grandes. Llevarlas fuera del servidor es parte del despliegue (Bloque 11).
+- **Sin descarga desde el panel:** las copias contienen los hashes de las contraseñas y pueden ser grandes. Se llevan fuera del servidor con restic (D-065).
 
 ## D-061 · Purga física controlada de archivos (Bloque 10, completa D-047)
 
@@ -385,3 +385,51 @@ Formato: contexto → decisión → consecuencias. Las decisiones solo se revisa
   - ninguna de las dos cosas está en la especificación;
   - purgar la auditoría debilitaría su inmutabilidad y su cadena de huellas;
   - el registro crece poco: una fila por operación.
+
+## D-064 · Límite general de peticiones en la aplicación (Bloque 11)
+
+- **Decisión:**
+  - Límite por IP en ventanas de un minuto: 1200 peticiones (`RATE_LIMIT_REQUESTS_PER_MINUTE`) y, aparte, 120 escrituras (`RATE_LIMIT_WRITES_PER_MINUTE`).
+  - Al superarlo, `429 too_many_requests` con `Retry-After`, y un aviso en el registro por IP y ventana.
+  - El límite del inicio de sesión (Bloque 03) sigue aparte, y es más estricto.
+- **Motivo:**
+  - la especificación pide limitar las peticiones;
+  - la protección no debe depender de que el proxy esté bien configurado; Caddy no trae limitador de serie.
+
+  Los contadores están en memoria, como los del inicio de sesión (D-019): un solo proceso. Detrás del proxy exige `TRUST_PROXY=true`; si no, todos los visitantes compartirían la IP del proxy. `npm run check` lo comprueba en producción.
+
+## D-065 · Despliegue de referencia: Linux, Caddy, systemd y restic (Bloque 11)
+
+- **Decisión:**
+  - **Proxy:** Caddy delante, porque obtiene y renueva el certificado y redirige a `https` sin configuración adicional. Hay un ejemplo equivalente para nginx.
+  - **Aplicación:** escucha solo en `127.0.0.1`, como servicio `systemd` sin privilegios y endurecido.
+  - **Copias fuera del servidor:** `restic`, cifradas en origen, con temporizador diario. `backup:verify-dir` verifica una copia recuperada en cualquier ruta.
+- **Motivo:**
+  - es la opción más sencilla que cumple «HTTPS obligatorio»;
+  - el cifrado de las copias se deja a una herramienta madura, en lugar de implementar cifrado y gestión de claves propios.
+- **Límite:** las configuraciones no se han ejecutado en un servidor real; se validan en la puesta en marcha (ver [DEPLOYMENT.md](DEPLOYMENT.md)).
+
+## D-066 · Estructura final frente a la de referencia (Bloque 11)
+
+Diferencias con la estructura de referencia de la especificación, y su motivo.
+
+| Referencia | Estado | Motivo |
+| --- | --- | --- |
+| `backend/database/repositories/` | Cada módulo tiene su `repository.js` | El acceso a datos queda junto a la lógica que lo usa |
+| `backend/services/` | No existe | Ningún servicio es compartido entre módulos |
+| `frontend/shared/`, `frontend/assets/` | No existen | Panel y sitio no comparten código; cada uno tiene sus `assets/` |
+| `frontend/components/` | Solo `editor/`, fuente del bundle de Tiptap | — |
+| — | `deploy/` añadido | Configuraciones de despliegue (D-065) |
+| — | `tests/browser/` añadido | Prueba en navegador real, aparte de `npm test` |
+
+La especificación pide no crear archivos ni módulos vacíos solo para completar la estructura.
+
+## D-067 · Pruebas integrales y en navegador (Bloque 11)
+
+- **Decisión:** se añaden:
+  - una prueba del ciclo completo entre módulos, con base en archivo y servidor real, que incluye la restauración;
+  - pruebas de los procesos reales: servidor, bloqueo, línea de órdenes y `check-env` en producción;
+  - la prueba en Chrome (`npm run test:browser`), versionada pero fuera de `npm test`, porque necesita Chrome;
+  - cobertura (`npm run test:coverage`);
+  - una medida de rendimiento (`npm run bench`).
+- **Motivo:** cada bloque se probó por separado; faltaba comprobar el conjunto. Las pruebas en navegador de los bloques 08–10 estaban fuera del repositorio y nadie más podía repetirlas.

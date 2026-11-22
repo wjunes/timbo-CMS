@@ -18,6 +18,7 @@
     "backup:create": "node --env-file-if-exists=.env scripts/backup.js create",
     "backup:list": "node --env-file-if-exists=.env scripts/backup.js list",
     "backup:verify": "node --env-file-if-exists=.env scripts/backup.js verify",
+    "backup:verify-dir": "node scripts/backup.js verify-dir",
     "backup:prune": "node --env-file-if-exists=.env scripts/backup.js prune",
     "backup:restore": "node --env-file-if-exists=.env scripts/backup.js restore",
     "admin:create": "node --env-file-if-exists=.env scripts/admin.js create",
@@ -26,6 +27,9 @@
     "test:unit": "node --test \"tests/unit/**/*.test.js\"",
     "test:integration": "node --test \"tests/integration/**/*.test.js\"",
     "test:security": "node --test \"tests/security/**/*.test.js\"",
+    "test:coverage": "node --test --experimental-test-coverage --test-coverage-exclude=\"tests/**\" \"tests/**/*.test.js\"",
+    "test:browser": "node tests/browser/run.js",
+    "bench": "node scripts/bench.js",
     "build:editor": "node scripts/build-editor.js"
   },
   "devDependencies": {

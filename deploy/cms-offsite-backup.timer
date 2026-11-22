@@ -1,0 +1,11 @@
+# Una vez al día, después de la copia automática del CMS.
+[Unit]
+Description=CMS-MULTISECCIÓN: copias fuera del servidor, diarias
+
+[Timer]
+OnCalendar=*-*-* 04:30:00
+RandomizedDelaySec=15m
+Persistent=true
+
+[Install]
+WantedBy=timers.target

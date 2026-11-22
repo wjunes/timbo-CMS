@@ -58,7 +58,7 @@ Un parámetro desconocido, repetido o mal formado responde `400 validation_faile
 - Cada copia de seguridad guarda la última huella de su momento (`auditHead`). La verificación comprueba que todas siguen en la cadena.
 - Después de una restauración, la historia continúa por otro camino. Por eso no cuentan las copias hechas entre la copia restaurada y la restauración, ni la del estado anterior a la restauración.
 
-**Límite.** La huella no lleva clave. Quien pueda escribir en el archivo de la base y desactivar los triggers puede reescribir toda la cadena. Ese cambio solo se detecta comparando con las anclas de las copias, y únicamente si las copias no se manipularon también. Para resistir a alguien con ese acceso, las copias deben guardarse además fuera del servidor (Bloque 11).
+**Límite.** La huella no lleva clave. Quien pueda escribir en el archivo de la base y desactivar los triggers puede reescribir toda la cadena. Ese cambio solo se detecta comparando con las anclas de las copias, y únicamente si las copias no se manipularon también. Para resistir a alguien con ese acceso, las copias se guardan además fuera del servidor (ver [DEPLOYMENT.md](DEPLOYMENT.md#copias-de-seguridad)).
 
 ## Panel
 

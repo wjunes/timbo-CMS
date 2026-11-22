@@ -1,0 +1,55 @@
+# Servicio systemd de CMS-MULTISECCIÓN (ver docs/DEPLOYMENT.md).
+#
+#   sudo cp deploy/cms-multiseccion.service /etc/systemd/system/
+#   sudo systemctl daemon-reload && sudo systemctl enable --now cms-multiseccion
+#
+# Código en /opt/cms-multiseccion (solo lectura para el servicio), datos en
+# /var/lib/cms-multiseccion y configuración en /etc/cms-multiseccion/cms.env.
+
+[Unit]
+Description=CMS-MULTISECCIÓN
+After=network.target
+Documentation=file:///opt/cms-multiseccion/docs/DEPLOYMENT.md
+
+[Service]
+Type=simple
+User=cms
+Group=cms
+WorkingDirectory=/opt/cms-multiseccion
+EnvironmentFile=/etc/cms-multiseccion/cms.env
+ExecStart=/usr/bin/node backend/server.js
+
+# Ante un error fatal el proceso termina con código 1 y se reinicia.
+Restart=on-failure
+RestartSec=5
+# Cierre ordenado: el servidor termina las peticiones en curso (máx. 10 s),
+# cierra la base y libera el bloqueo cms.lock.
+KillSignal=SIGTERM
+TimeoutStopSec=20
+
+# Endurecimiento: solo puede escribir en sus datos.
+UMask=0077
+NoNewPrivileges=yes
+ProtectSystem=strict
+ReadWritePaths=/var/lib/cms-multiseccion
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+CapabilityBoundingSet=
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+# MemoryDenyWriteExecute no se activa: el compilador JIT de V8 lo necesita.
+
+[Install]
+WantedBy=multi-user.target

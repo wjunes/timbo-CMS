@@ -49,5 +49,13 @@ export function createRouter() {
     return null;
   }
 
-  return Object.freeze({ add, match });
+  /** Inventario de rutas registradas (Bloque 11: lo revisa una prueba de seguridad). */
+  function list() {
+    const out = [];
+    for (const [path, methods] of exact) for (const [method, def] of methods) out.push({ method, path, ...def });
+    for (const { segments, methods } of patterns) for (const [method, def] of methods) out.push({ method, path: segments.join('/'), ...def });
+    return out;
+  }
+
+  return Object.freeze({ add, match, list });
 }

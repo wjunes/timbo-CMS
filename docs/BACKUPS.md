@@ -43,6 +43,7 @@ La base copiada se abre en solo lectura y con `trusted_schema=OFF`.
 | `npm run backup:create` | Crea una copia manual. Funciona con el servidor en marcha. |
 | `npm run backup:list` | Lista las copias. |
 | `npm run backup:verify -- <id>` | Verifica una copia (código de salida 1 si no la supera). |
+| `npm run backup:verify-dir -- <ruta>` | Verifica una copia en cualquier ruta, por ejemplo recuperada de fuera del servidor. |
 | `npm run backup:prune` | Aplica la retención. |
 | `npm run backup:restore -- <id> --confirm` | Restaura una copia, con el servidor detenido. |
 
@@ -68,10 +69,10 @@ Solo se hace desde la línea de órdenes y con el servidor detenido. Mientras el
 - **Rutas:** `STORAGE_DIR` está fuera de lo público, y ninguna ruta HTTP sirve `backups/` ni `cms.lock`. Los ids se validan como 14 dígitos.
 - **Archivos y permisos:** en sistemas POSIX los directorios se crean con modo `0700` y el manifiesto con `0600`. En Windows rigen los permisos de la carpeta.
 - **Copias manipuladas:** la verificación detecta cambios accidentales o parciales. Quien pueda escribir en `backups/` puede rehacer una copia con un manifiesto coherente, así que el directorio debe protegerse igual que la base.
-- **Copias fuera del servidor:** una copia en el mismo disco no protege si ese disco se pierde. Llevarlas a otro lugar es parte del despliegue (Bloque 11).
+- **Copias fuera del servidor:** una copia en el mismo disco no protege si ese disco se pierde. Se llevan fuera, cifradas, con restic (D-065, ver [DEPLOYMENT.md](DEPLOYMENT.md#copias-de-seguridad)). `npm run backup:verify-dir -- <ruta>` verifica una copia en cualquier ruta, sin base ni configuración.
 
 ## Limitaciones conocidas
 
 - La copia se hace en el propio servidor. Con muchos archivos multimedia ocupa tanto como ellos, y la verificación los lee todos.
-- No hay compresión ni cifrado de las copias. El cifrado depende de dónde se guarden fuera del servidor (Bloque 11).
+- Las copias locales no se comprimen ni se cifran; las externas las cifra restic (D-065).
 - La restauración sustituye la base y los archivos enteros. No hay restauración parcial de un contenido o de un archivo.

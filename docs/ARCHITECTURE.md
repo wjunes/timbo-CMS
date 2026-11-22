@@ -9,7 +9,7 @@ Monolito modular sobre Node.js 24 nativo (`node:http`, `node:sqlite`, `node:cryp
 
 Toda autorización se decide en el backend.
 
-## Estado implementado (Bloques 01–10)
+## Estado implementado (Bloques 01–11)
 
 ```text
 backend/
@@ -43,7 +43,8 @@ scripts/
   check-env.js        Verificación de entorno (Node, node:sqlite, node:crypto, configuración, estado de la BD)
   db.js               CLI: migrate | status
   admin.js            CLI: create | reset-password del general_admin
-  backup.js           CLI: create | list | verify | prune | restore de copias de seguridad
+  backup.js           CLI: create | list | verify | verify-dir | prune | restore de copias de seguridad
+  bench.js            Medida de rendimiento con el servidor real y una base temporal
   build-editor.js     Empaqueta el editor (esbuild); --check verifica el bundle versionado
 frontend/
   components/editor/  Configuración de Tiptap (fuente del bundle; no se sirve)
@@ -51,6 +52,8 @@ frontend/
   public/assets/      Hoja de estilos del sitio público, servida en /assets/
 storage/              STORAGE_DIR, no versionado ni servido: media/ (archivos subidos), private/, backups/ y cms.lock
 database/             cms.db (+ -wal/-shm) en tiempo de ejecución, no versionado
+deploy/               Despliegue de referencia: Caddyfile, nginx, servicio systemd, entorno de producción, copias externas (restic)
+tests/                unit/, integration/, security/ (npm test) y browser/ (npm run test:browser, necesita Chrome)
 tests/
   helpers/            utilidades compartidas (BD en memoria migrada, datos de ejemplo)
   helpers/http.js     aplicación completa en puerto efímero para pruebas HTTP
@@ -69,15 +72,9 @@ docs/                 Documentación del proyecto
 5. `createServer()` aplica cabeceras de seguridad, sirve el panel (`/admin/…`) y los recursos públicos (`/assets/…`) desde listas cerradas con su CSP, enruta la API (404/405); lo que no es de la API lo atiende el sitio público (HTML, solo GET/HEAD); exige mismo origen en métodos que modifican estado, resuelve la sesión en rutas autenticadas (401) y exige `X-CSRF-Token` si modifican estado. Con contraseña temporal solo se permiten las rutas marcadas `allowDuringPasswordChange`, y si la ruta exige un rol se comprueba aquí (403 auditado). Cada 15 min se purgan las sesiones caducadas. `server.js` mantiene el bloqueo `STORAGE_DIR/cms.lock` mientras está en marcha y programa las copias automáticas.
 6. `SIGINT`/`SIGTERM` cierran el servidor de forma ordenada (máx. 10 s) y la base de datos (checkpoint del WAL).
 
-## Estructura planificada (bloques posteriores)
+## Estructura final
 
-Los directorios se crean cuando tienen contenido real (no se generan carpetas o archivos vacíos):
-
-```text
-backend/
-  database/repositories/                Bloques 03+ (un repositorio por módulo, en su bloque)
-  services/                             según necesidad
-```
+Las diferencias con la estructura de referencia de la especificación y su motivo están en [D-066](DECISIONS.md).
 
 ## Entorno de datos
 

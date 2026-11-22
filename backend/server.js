@@ -100,5 +100,23 @@ function shutdown(signal) {
   }, 10_000).unref();
 }
 
+// Un error no capturado deja el proceso en un estado desconocido: se registra,
+// se libera el bloqueo y se termina con código 1 para que el supervisor
+// (systemd, ver docs/DEPLOYMENT.md) lo reinicie. La base no queda a medias:
+// toda escritura es una transacción.
+function fatal(kind, err) {
+  logger.error('Error fatal: el proceso termina', { kind, err });
+  try {
+    backupScheduler.stop();
+    closeDatabase(db);
+  } catch {
+    // Lo importante es terminar.
+  }
+  releaseLock();
+  process.exit(1);
+}
+process.on('uncaughtException', (err) => fatal('uncaughtException', err));
+process.on('unhandledRejection', (err) => fatal('unhandledRejection', err));
+
 process.on('SIGINT', () => shutdown('SIGINT'));
 process.on('SIGTERM', () => shutdown('SIGTERM'));

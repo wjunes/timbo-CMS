@@ -1,0 +1,16 @@
+# Envía las copias de seguridad fuera del servidor (ver deploy/offsite-backup.sh).
+[Unit]
+Description=CMS-MULTISECCIÓN: copias fuera del servidor (restic)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+EnvironmentFile=/etc/cms-multiseccion/restic.env
+ExecStart=/bin/sh /opt/cms-multiseccion/deploy/offsite-backup.sh
+# Solo lectura sobre los datos del CMS.
+ProtectSystem=strict
+ReadOnlyPaths=/var/lib/cms-multiseccion
+ReadWritePaths=/root/.cache/restic
+PrivateTmp=yes
+NoNewPrivileges=yes

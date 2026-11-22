@@ -155,3 +155,15 @@ describe('loadConfig: copias de seguridad (Bloque 10)', () => {
     expectIssues({ BACKUP_KEEP: 'muchas' }, 'BACKUP_KEEP');
   });
 });
+
+describe('loadConfig: límite general de peticiones (Bloque 11)', () => {
+  it('por defecto, 1200 peticiones y 120 escrituras por minuto e IP', () => {
+    assert.deepEqual(loadConfig({}).rateLimit, { requestsPerMinute: 1200, writesPerMinute: 120 });
+  });
+
+  it('rechaza valores fuera de rango', () => {
+    expectIssues({ RATE_LIMIT_REQUESTS_PER_MINUTE: '59' }, 'RATE_LIMIT_REQUESTS_PER_MINUTE');
+    expectIssues({ RATE_LIMIT_WRITES_PER_MINUTE: '9' }, 'RATE_LIMIT_WRITES_PER_MINUTE');
+    expectIssues({ RATE_LIMIT_WRITES_PER_MINUTE: 'muchas' }, 'RATE_LIMIT_WRITES_PER_MINUTE');
+  });
+});

@@ -1,0 +1,42 @@
+# CMS-MULTISECCIÓN detrás de Caddy (ver docs/DEPLOYMENT.md).
+#
+# Caddy obtiene y renueva el certificado HTTPS automáticamente y redirige
+# http → https. La aplicación escucha solo en 127.0.0.1:3000 y pone ella misma
+# las cabeceras de seguridad (CSP, HSTS en producción, etc.).
+#
+# Sustituya cms.example.org por su dominio, cuyo DNS debe apuntar a este servidor
+# (puertos 80 y 443 abiertos).
+
+{
+	# Correo para el aviso de caducidad de certificados (opcional).
+	# email admin@example.org
+}
+
+cms.example.org {
+	# Las subidas admiten hasta MEDIA_MAX_BYTES (10 MiB por defecto); los
+	# documentos del editor, hasta 2,25 MiB. Por encima, se corta aquí.
+	request_body {
+		max_size 12MB
+	}
+
+	encode zstd gzip
+
+	# Caddy pasa la IP del cliente en X-Forwarded-For (descarta la que envíe el
+	# cliente). La aplicación la usa con TRUST_PROXY=true para sus límites por IP.
+	reverse_proxy 127.0.0.1:3000
+
+	# Sin anunciar el servidor.
+	header -Server
+
+	log {
+		output file /var/log/caddy/cms-access.log {
+			roll_size 50MiB
+			roll_keep 10
+		}
+	}
+}
+
+# Caché: no se configura a propósito. Las páginas y archivos públicos llevan
+# ETag y Cache-Control: no-cache (D-054): el navegador revalida siempre y una
+# despublicación tiene efecto inmediato. El rendimiento medido con `npm run bench`
+# no exige una caché intermedia para un sitio institucional.

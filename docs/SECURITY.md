@@ -2,7 +2,36 @@
 
 La seguridad forma parte del diseño desde el Bloque 01. Este documento distingue entre lo **implementado y verificado** y lo **planificado**.
 
-## Implementado (Bloques 01–10)
+## Cumplimiento de la especificación (revisión del Bloque 11)
+
+Cada medida de seguridad que exige la especificación, dónde está y qué la comprueba.
+
+| Exigencia | Implementación | Verificación |
+| --- | --- | --- |
+| Contraseñas con Argon2id | `modules/auth/password.js` (`crypto.argon2` nativo, D-007) | `tests/unit/password.test.js` (vector de RFC 9106) |
+| Sesiones opacas con tokens aleatorios de alta entropía | `modules/auth/sessions.js` (32 bytes de `randomBytes`) | `tests/unit/sessions.test.js` |
+| Solo se guarda el hash del token | `sessions.token_hash` (SHA-256) | `tests/unit/sessions.test.js`, `tests/security/auth.security.test.js` |
+| Cookies `HttpOnly`, `Secure` y `SameSite` | `middleware/http.js` (`SameSite=Strict`; `Secure` con `APP_BASE_URL` https, obligatoria en producción) | `tests/unit/http.test.js`, `tests/integration/auth.test.js` |
+| Protección CSRF | Mismo origen en toda escritura y token `X-CSRF-Token` ligado a la sesión, solo en memoria del panel | `tests/security/routes.security.test.js` (todas las rutas), `auth.security.test.js` |
+| XSS: sanitización y codificación contextual | Cuerpo por lista blanca y renderizado escapado; sitio público con plantillas escapadas y sin JavaScript; panel sin `innerHTML`; CSP | `tests/security/contents.security.test.js`, `public.security.test.js`, `tests/unit/contents-render.test.js` |
+| Consultas SQL parametrizadas | Sentencias preparadas en todos los repositorios; la consulta de auditoría compone solo fragmentos fijos con parámetros con nombre | revisión de código, filtros probados en `tests/integration/audit.test.js` |
+| Fuerza bruta y abuso de autenticación | Límites de inicio de sesión por IP, por usuario y por ambos; Argon2id acotado en concurrencia | `tests/security/auth.security.test.js` |
+| Rate limiting | Límite general por IP, con otro más bajo para escrituras (D-064) | `tests/security/routes.security.test.js` |
+| Content Security Policy | API `default-src 'none'`; panel sin nada en línea; sitio público sin scripts (también en `304`); archivos en `sandbox` | `tests/integration/server.test.js`, `public.security.test.js`, `media.security.test.js`; navegador real sin violaciones (`npm run test:browser`) |
+| Cabeceras HTTP de seguridad | `baseSecurityHeaders` en toda respuesta; HSTS en producción | `tests/integration/server.test.js` |
+| Validación estricta de entrada | `utils/validation.js` (campos desconocidos rechazados), parámetros de ruta solo numéricos, límites de cuerpo en cada lectura | `tests/unit/router-validation.test.js`, pruebas de cada módulo, `routes.security.test.js` (cuerpos enormes) |
+| Permisos en el backend | Autorizador central `can`/`canView` y rol por ruta; el navegador no decide nada | `tests/security/authorization.security.test.js`, `routes.security.test.js` (inventario completo) |
+| Validación real de archivos | Firma, estructura y tipo reales; sin metadatos; PDF sin contenido activo | `tests/unit/media-inspect.test.js`, `tests/security/media.security.test.js` |
+| Auditoría de operaciones críticas | Registro inmodificable con cadena de huellas (D-059) | `tests/integration/audit.test.js`, `lifecycle.test.js` |
+| Revocación de sesiones | Al suspender, desactivar o cambiar la contraseña, a petición y al restaurar | `tests/integration/users.test.js`, `backups.test.js`, `lifecycle.test.js` |
+| HTTPS obligatorio en producción | `APP_BASE_URL` https obligatoria; proxy con redirección (D-065); escucha local comprobada por `npm run check` | `tests/unit/config.test.js`, `deploy-config.test.js`, `tests/integration/processes.test.js` |
+| Sin tokens en `localStorage` | Cookie `HttpOnly`; CSRF en memoria | prueba que revisa todos los archivos del panel (`tests/security/media.security.test.js`) |
+| Sin secretos en el frontend, el repositorio ni los registros | Redacción en registro y auditoría; `.gitignore`; la aplicación no necesita secretos | `tests/unit/logger.test.js`, `maintenance.security.test.js` |
+| Sin código ejecutable de los administradores | Cuerpo por lista blanca, plantillas del sistema, configuración en texto plano | `contents.security.test.js`, `maintenance.test.js` |
+| Sin puertas traseras | El `general_admin` pasa por las mismas comprobaciones; su cuenta solo se gestiona por línea de órdenes; no hay rutas ocultas | `routes.security.test.js` (inventario) |
+| Archivos: nombres aleatorios, fuera de lo público, sin BLOB, no se borran en uso | `modules/media`, triggers de las migraciones 006 y 008 | `tests/integration/media.test.js`, `maintenance.test.js` |
+
+## Implementado (Bloques 01–11)
 
 | Medida | Dónde | Verificación |
 | --- | --- | --- |
@@ -81,15 +110,15 @@ La seguridad forma parte del diseño desde el Bloque 01. Este documento distingu
 | Restauración solo con el servidor detenido (bloqueo), de copias verificadas y de esquema compatible, con copia previa, revocación de sesiones y auditoría | `modules/backups/restore.js`, `server.js` | `tests/integration/backups.test.js`; prueba con el servidor real |
 | Purga de archivos en dos pasos, revalidada y nunca de archivos en uso (también por trigger) | `modules/media/purge.js`, migración 008 | `tests/integration/maintenance.test.js` |
 | Auditoría, copias, purga y configuración solo para `general_admin`; mismo origen y CSRF en las que modifican estado | rutas de cada módulo | `tests/security/maintenance.security.test.js` |
+| Límite general de peticiones por IP (todas y escrituras), con `Retry-After` y un aviso por ventana en el registro | `backend/app.js` | `tests/security/routes.security.test.js` |
+| Inventario de rutas revisado: solo las públicas sin sesión, rol o autorización por sección en el resto, CSRF y origen en toda escritura, ninguna espera un cuerpo por encima de su límite | `middleware/router.js`, `app.js` | `tests/security/routes.security.test.js` |
+| Errores fatales registrados, con cierre del proceso para que el supervisor lo reinicie | `backend/server.js` | `tests/integration/processes.test.js` (arranque y bloqueo) |
+| Despliegue: HTTPS en el proxy, escucha local, servicio sin privilegios y endurecido, copias externas cifradas | `deploy/`, `scripts/check-env.js` | `tests/unit/deploy-config.test.js`, `processes.test.js` |
 | Dependencias del editor fijadas, con más de dos semanas de antigüedad, solo de desarrollo; bundle local (sin CDN) verificado contra ellas | `package.json`, `scripts/build-editor.js` | `tests/unit/editor-schema.test.js` |
 
 ## Planificado
 
-| Medida | Bloque |
-| --- | --- |
-| Consultas SQL parametrizadas en todos los repositorios (restricciones e integridad referencial: hechas en el Bloque 02) | 03+ |
-| Copias fuera del servidor (y su cifrado) | 11 |
-| HTTPS en producción (terminación TLS / proxy inverso), revisión final | 11 |
+Nada: todas las medidas previstas están implementadas. Las limitaciones conocidas están en [README.md](../README.md#limitaciones-conocidas).
 
 ## Principios
 

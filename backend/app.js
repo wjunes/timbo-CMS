@@ -5,6 +5,7 @@
  * puerto efímero, sin efectos secundarios (señales, process.exit).
  *
  * Canal de cada petición:
+ *   0. Límite general de peticiones por IP (Bloque 11): 429 con Retry-After.
  *   1. Cabeceras de seguridad (toda respuesta).
  *   2. Panel (`/admin/…`) y recursos públicos (`/assets/…`): archivos estáticos de
  *      una lista cerrada, con su CSP. Resto: enrutado exacto por ruta y método
@@ -35,6 +36,7 @@ import { createMediaPurge } from './modules/media/purge.js';
 import { PUBLIC_CSP, createPublicSite } from './modules/public/index.js';
 import { createStaticSite } from './middleware/static.js';
 import { verifyCsrfToken } from './modules/auth/sessions.js';
+import { createRateLimiter } from './modules/auth/rate-limiter.js';
 import { createPermissionsModule } from './modules/permissions/index.js';
 import { createSectionsModule } from './modules/sections/index.js';
 import { createSettingsModule } from './modules/settings/index.js';
@@ -144,7 +146,29 @@ export function createServer({ config, logger, db, clock = Date.now, passwordHas
     router.add(route);
   }
 
+  // Límite general por IP (D-064). El del inicio de sesión (Bloque 03) es aparte y más estricto.
+  const requestLimiter = createRateLimiter({ windowMs: 60_000, max: config.rateLimit.requestsPerMinute, clock });
+  const writeLimiter = createRateLimiter({ windowMs: 60_000, max: config.rateLimit.writesPerMinute, clock });
+
+  function rateLimited(req) {
+    const ip = clientIp(req, config.trustProxy) ?? 'desconocida';
+    const limiters = UNSAFE_METHODS.has(req.method) ? [requestLimiter, writeLimiter] : [requestLimiter];
+    for (const limiter of limiters) {
+      const { limited, retryAfterSeconds } = limiter.check(ip);
+      if (limited) return retryAfterSeconds;
+    }
+    for (const limiter of limiters) {
+      limiter.hit(ip);
+      // Se registra una vez por ventana: al alcanzar el límite, no en cada rechazo.
+      if (limiter.check(ip).limited) logger.warn('Límite de peticiones alcanzado', { ip, kind: limiter === writeLimiter ? 'writes' : 'requests' });
+    }
+    return 0;
+  }
+
   async function handle(req) {
+    const retryAfter = rateLimited(req);
+    if (retryAfter) return errorResponse(429, 'too_many_requests', { 'Retry-After': String(retryAfter) });
+
     // Solo interesa la ruta; la base es fija para no depender de la cabecera Host.
     let pathname;
     try {
@@ -237,5 +261,6 @@ export function createServer({ config, logger, db, clock = Date.now, passwordHas
 
   server.auth = auth;
   server.backups = backupService;
+  server.routes = router.list();
   return server;
 }

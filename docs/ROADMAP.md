@@ -14,7 +14,7 @@ Estados: `PENDING` · `IN_PROGRESS` · `VALIDATION` · `APPROVED` · `BLOCKED`
 | 08 | Editor enriquecido y multimedia | `APPROVED` |
 | 09 | Sitio público y presentación adaptable | `APPROVED` |
 | 10 | Auditoría, copias de seguridad y restauración (y pantallas de administración general, D-045) | `APPROVED` |
-| 11 | Pruebas integrales, seguridad y despliegue | `PENDING` |
+| 11 | Pruebas integrales, seguridad y despliegue | `APPROVED` |
 
 Cada bloque requiere aprobación explícita antes de comenzar el siguiente.
 
@@ -253,4 +253,64 @@ Cada bloque requiere aprobación explícita antes de comenzar el siguiente.
 - [x] Pantallas de usuarios, permisos, secciones, configuración, auditoría y copias, probadas en un navegador real (escritorio y 375 px, sin violaciones de CSP).
 - [x] Todas las pruebas pasan (incluidas las de los Bloques 01–09).
 - [x] Documentación actualizada.
+- [x] Revisión y aprobación del responsable del proyecto (2026-11-22).
+
+## Bloque 11 — Detalle
+
+**Alcance:**
+
+- revisión de seguridad integral:
+  - tabla de cumplimiento en [SECURITY.md](SECURITY.md);
+  - inventario de rutas comprobado en ejecución;
+  - límite general de peticiones (D-064);
+  - errores fatales;
+- pruebas integrales:
+  - ciclo completo;
+  - procesos reales;
+  - prueba en navegador versionada (D-067);
+  - cobertura;
+  - medida de rendimiento;
+- despliegue:
+  - guía [DEPLOYMENT.md](DEPLOYMENT.md);
+  - configuraciones en `deploy/` (Caddy, nginx, systemd, restic);
+  - comprobaciones de producción en `npm run check`;
+  - `backup:verify-dir` (D-065);
+- estructura final y documentación (D-066).
+
+**Fuera de alcance:**
+
+- contratar y configurar un servidor real, el dominio y los certificados;
+- funciones nuevas del CMS;
+- herramientas externas de análisis automático.
+
+**Cobertura** (`npm run test:coverage`, sin contar las pruebas):
+
+- 96,7 % de líneas, 90,5 % de ramas y 93,9 % de funciones;
+- `server.js` figura con un 35 % porque se prueba como proceso aparte (arranque, bloqueo, segundo servidor, migraciones pendientes), cuya cobertura no se cuenta.
+
+**Rendimiento orientativo** (`npm run bench`; portátil Ryzen 5 3500U; cliente y servidor en la misma máquina; 20 conexiones; 200 contenidos publicados):
+
+| Ruta | Peticiones/s | p50 | p95 |
+| --- | --- | --- | --- |
+| Portada | 417 | 47 ms | 58 ms |
+| Lista de noticias (página 5) | 419 | 47 ms | 58 ms |
+| Página de un contenido | 1150 | 17 ms | 21 ms |
+| Archivo público (imagen) | 508 | 39 ms | 50 ms |
+| Hoja de estilos | 1014 | 18 ms | 30 ms |
+| API: contenidos de una sección (200, sin paginar) | 275 | 71 ms | 89 ms |
+| API: auditoría (50 entradas) | 710 | 27 ms | 36 ms |
+
+Sin errores. Basta de sobra para un sitio institucional.
+
+**Criterios de aceptación:**
+
+- [x] Cada exigencia de seguridad de la especificación tiene implementación y verificación documentadas.
+- [x] Ninguna ruta queda sin protección por descuido: el inventario completo está fijado en una prueba y comprobado en ejecución.
+- [x] Límite general de peticiones, también en escrituras.
+- [x] Ciclo completo probado de principio a fin, con restauración, con el servidor y la línea de órdenes reales.
+- [x] Prueba en navegador real versionada y en verde: sitio público y panel, en móvil y escritorio, sin violaciones de CSP.
+- [x] HTTPS obligatorio en producción: configuración del proxy con redirección, escucha local y comprobaciones en `npm run check`.
+- [x] Guía de despliegue, actualización, copias fuera del servidor y restauración.
+- [x] Todas las pruebas pasan (incluidas las de los Bloques 01–10).
+- [x] Documentación final.
 - [x] Revisión y aprobación del responsable del proyecto (2026-11-22).

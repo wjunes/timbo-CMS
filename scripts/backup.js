@@ -4,6 +4,8 @@
  *   node scripts/backup.js create                Crea una copia manual (con el servidor en marcha o no).
  *   node scripts/backup.js list                  Lista las copias.
  *   node scripts/backup.js verify <id>           Verifica una copia completa.
+ *   node scripts/backup.js verify-dir <ruta>     Verifica una copia en cualquier ruta (p. ej. recuperada de
+ *                                                fuera del servidor). No necesita la base ni la configuración.
  *   node scripts/backup.js prune                 Aplica la retención a las copias automáticas.
  *   node scripts/backup.js restore <id> --confirm
  *                                                Restaura una copia. Exige el servidor DETENIDO;
@@ -15,10 +17,11 @@ import { ConfigError, MEMORY_DB, loadConfig } from '../backend/config/index.js';
 import { closeDatabase, openDatabase } from '../backend/database/connection.js';
 import { assertSchemaCurrent } from '../backend/database/migrator.js';
 import { restoreBackup } from '../backend/modules/backups/restore.js';
-import { BackupError, createBackupService } from '../backend/modules/backups/service.js';
+import path from 'node:path';
+import { BackupError, createBackupService, verifyBackupDir } from '../backend/modules/backups/service.js';
 import { createLogger } from '../backend/utils/logger.js';
 
-const USAGE = 'Uso: node scripts/backup.js <create|list|verify <id>|prune|restore <id> --confirm>';
+const USAGE = 'Uso: node scripts/backup.js <create|list|verify <id>|verify-dir <ruta>|prune|restore <id> --confirm>';
 const [command, arg, flag] = process.argv.slice(2);
 const out = (line) => process.stdout.write(`${line}\n`);
 
@@ -62,6 +65,15 @@ async function run() {
       if (!arg) return fail(USAGE);
       const { ok, issues } = await withService((s) => s.verify(arg));
       out(ok ? `Copia ${arg}: correcta.` : `Copia ${arg}: NO supera la verificación.`);
+      for (const i of issues) out(`  ${JSON.stringify(i)}`);
+      if (!ok) process.exitCode = 1;
+      return;
+    }
+    case 'verify-dir': {
+      if (!arg) return fail(USAGE);
+      const dir = path.resolve(arg);
+      const { ok, manifest, issues } = await verifyBackupDir(dir);
+      out(ok ? `Copia ${manifest.id} (${dir}): correcta. Creada ${manifest.createdAt}, esquema ${manifest.schema.migrations.at(-1)?.version ?? 0}.` : `${dir}: NO supera la verificación.`);
       for (const i of issues) out(`  ${JSON.stringify(i)}`);
       if (!ok) process.exitCode = 1;
       return;
