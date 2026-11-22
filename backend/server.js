@@ -3,11 +3,17 @@
  * Valida la configuración (falla rápido si es inválida), abre la base de datos,
  * exige que el esquema esté al día (no migra automáticamente), arranca el
  * servidor HTTP y gestiona el cierre ordenado ante SIGINT/SIGTERM.
+ *
+ * Mientras está en marcha mantiene el bloqueo STORAGE_DIR/cms.lock: no se puede
+ * restaurar una copia con el servidor activo (D-060). También programa las
+ * copias de seguridad automáticas.
  */
 import { createServer } from './app.js';
 import { ConfigError, loadConfig } from './config/index.js';
 import { closeDatabase, openDatabase } from './database/connection.js';
 import { assertSchemaCurrent } from './database/migrator.js';
+import { createBackupScheduler } from './modules/backups/index.js';
+import { acquireLock, serverLockFile } from './modules/backups/lock.js';
 import { createLogger } from './utils/logger.js';
 
 let config;
@@ -23,6 +29,14 @@ try {
 
 const logger = createLogger({ level: config.logLevel, includeStack: !config.isProduction });
 
+let releaseLock;
+try {
+  releaseLock = acquireLock(serverLockFile(config.storageDir), 'server');
+} catch (err) {
+  logger.error('No se pudo tomar el bloqueo del servidor: ¿hay otro servidor o una restauración en marcha?', { err });
+  process.exit(1);
+}
+
 let db;
 try {
   db = openDatabase(config.databasePath, { create: false });
@@ -30,6 +44,7 @@ try {
 } catch (err) {
   logger.error('No se pudo preparar la base de datos', { err, database: config.databasePath });
   if (db) closeDatabase(db);
+  releaseLock();
   process.exit(1);
 }
 
@@ -47,9 +62,16 @@ const purgeTimer = setInterval(() => {
 }, SESSION_PURGE_INTERVAL_MS);
 purgeTimer.unref();
 
+const backupScheduler = createBackupScheduler({
+  service: server.backups, intervalHours: config.backup.intervalHours, keep: config.backup.keep, logger,
+});
+backupScheduler.start();
+
 server.on('error', (err) => {
   logger.error('No se pudo iniciar el servidor', { err, host: config.host, port: config.port });
+  backupScheduler.stop();
   closeDatabase(db);
+  releaseLock();
   process.exit(1);
 });
 
@@ -64,7 +86,9 @@ function shutdown(signal) {
   logger.info('Cerrando servidor', { signal });
   const exit = () => {
     clearInterval(purgeTimer);
+    backupScheduler.stop();
     closeDatabase(db);
+    releaseLock();
     process.exit(0);
   };
   server.close(exit);

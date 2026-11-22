@@ -69,7 +69,7 @@ Las páginas, el sitemap y los archivos llevan `ETag` y `Cache-Control: no-cache
 
 ## Ajustes del sitio (D-056)
 
-`site.name` y `site.description` se guardan en `settings` (valores JSON). La migración 007 los crea con un valor por defecto. Mientras no exista la pantalla de configuración (Bloque 10, D-045), solo se cambian en la base.
+`site.name` y `site.description` se guardan en `settings` (valores JSON). La migración 007 los crea con un valor por defecto. Se cambian en el panel, en **Sistema → Configuración** (`PATCH /api/settings`, Bloque 10), y cada cambio se audita.
 
 ## Limitaciones conocidas
 

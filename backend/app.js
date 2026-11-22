@@ -24,15 +24,20 @@ import { PROJECT_ROOT } from './config/index.js';
 import { HttpError, UNSAFE_METHODS, clientIp, isSameOriginRequest } from './middleware/http.js';
 import { createRouter } from './middleware/router.js';
 import { createAuditLog } from './modules/audit/audit.js';
+import { createAuditModule } from './modules/audit/index.js';
+import { createBackupsModule } from './modules/backups/index.js';
+import { createBackupService } from './modules/backups/service.js';
 import { createAuth } from './modules/auth/index.js';
 import { createContentsModule } from './modules/contents/index.js';
 import { createEditorialModule } from './modules/editorial/index.js';
 import { createMediaModule } from './modules/media/index.js';
+import { createMediaPurge } from './modules/media/purge.js';
 import { PUBLIC_CSP, createPublicSite } from './modules/public/index.js';
 import { createStaticSite } from './middleware/static.js';
 import { verifyCsrfToken } from './modules/auth/sessions.js';
 import { createPermissionsModule } from './modules/permissions/index.js';
 import { createSectionsModule } from './modules/sections/index.js';
+import { createSettingsModule } from './modules/settings/index.js';
 import { createUsersModule } from './modules/users/index.js';
 
 /**
@@ -122,6 +127,11 @@ export function createServer({ config, logger, db, clock = Date.now, passwordHas
   const publicAssets = createStaticSite({ root: PUBLIC_ASSETS_ROOT, prefix: '/assets', csp: PUBLIC_CSP });
   const publicSite = createPublicSite({ db, config, logger });
   const audit = createAuditLog(db);
+  const backupService = createBackupService({ db, storageDir: config.storageDir, logger, clock });
+  const backupsModule = createBackupsModule({ service: backupService, schedule: config.backup });
+  const auditModule = createAuditModule({ db, anchors: backupService.anchors });
+  const settingsModule = createSettingsModule({ db });
+  const mediaPurge = createMediaPurge({ db, config, logger, clock });
 
   // Definición de ruta: { method, path, handler, auth?, role?, allowDuringPasswordChange? }
   const router = createRouter();
@@ -129,7 +139,7 @@ export function createServer({ config, logger, db, clock = Date.now, passwordHas
   router.add({ method: 'GET', path: '/health', handler: health });
   router.add({ method: 'HEAD', path: '/health', handler: health });
   for (const route of [...auth.routes, ...users.routes, ...permissionsModule.routes, ...sectionsModule.routes, ...contentsModule.routes, ...editorialModule.routes,
-    ...mediaModule.routes, ...publicSite.routes]) {
+    ...mediaModule.routes, ...mediaPurge.routes, ...auditModule.routes, ...backupsModule.routes, ...settingsModule.routes, ...publicSite.routes]) {
     if (route.role && !route.auth) throw new Error(`La ruta ${route.path} exige rol pero no sesión`);
     router.add(route);
   }
@@ -226,5 +236,6 @@ export function createServer({ config, logger, db, clock = Date.now, passwordHas
   });
 
   server.auth = auth;
+  server.backups = backupService;
   return server;
 }

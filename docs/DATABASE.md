@@ -30,13 +30,13 @@ unidades de red, y las carpetas sincronizadas (OneDrive, Dropbox…) pueden corr
 ## Migraciones
 
 - Archivos `NNN_nombre.sql`, numerados de forma contigua desde `001`.
-- **Solo avanzan.** No hay migraciones de vuelta atrás: se revierte restaurando un backup (Bloque 10).
+- **Solo avanzan.** No hay migraciones de vuelta atrás: se revierte restaurando una copia de seguridad (ver [BACKUPS.md](BACKUPS.md)).
 - **Una migración aplicada no se edita.** Su SHA-256 queda en `schema_migrations`; si el archivo cambia, el migrador y el servidor se detienen. Los cambios van en una migración nueva.
 - Cada migración y su registro se aplican en una sola transacción, seguida de `foreign_key_check`. Al terminar todas se ejecuta `integrity_check`.
 - Las migraciones no pueden contener `BEGIN`/`COMMIT`/`ROLLBACK`/`SAVEPOINT` propios.
 - **El servidor no migra al arrancar:** si hay migraciones pendientes o inconsistentes, no arranca. Hay que ejecutar `npm run db:migrate` explícitamente.
 
-## Modelo (migraciones 001–007)
+## Modelo (migraciones 001–008)
 
 Todas las tablas son `STRICT`. Las fechas se guardan como TEXT ISO-8601 UTC con milisegundos. Los booleanos son `INTEGER` 0/1.
 
@@ -201,6 +201,19 @@ Añade dos tablas de redirecciones, triggers y los ajustes del sitio.
 
 Ver [PUBLIC.md](PUBLIC.md).
 
+### Migración 008 (Bloque 10)
+
+Añade dos tablas y sus triggers; no modifica las existentes.
+
+| Regla u objeto | Código |
+| --- | --- |
+| `audit_chain`: una huella SHA-256 por entrada de auditoría, en orden y sin huecos (D-059) | `audit_chain_order` |
+| Las huellas no se modifican ni se borran | `audit_log_immutable` |
+| `media_purges`: solo un archivo eliminado y sin uso en ninguna versión (D-061); no se modifica ni se borra | `media_not_purgeable`, `media_purge_immutable` |
+| Un archivo purgado no se vuelve a usar en una versión | `media_not_available` |
+
+Ver [AUDIT.md](AUDIT.md) y [BACKUPS.md](BACKUPS.md).
+
 ## Concurrencia
 
 - WAL: muchos lectores y un único escritor. Toda escritura de varias sentencias usa `withTransaction` (`BEGIN IMMEDIATE`).
@@ -209,6 +222,6 @@ Ver [PUBLIC.md](PUBLIC.md).
 
 ## Limitaciones conocidas
 
-- Los triggers protegen la base frente a errores de la aplicación, no frente a quien tenga acceso directo al archivo (podría ejecutar `DROP TRIGGER`). La protección del archivo depende del sistema operativo, y la verificación de integridad de la auditoría llega en el Bloque 10.
+- Los triggers protegen la base frente a errores de la aplicación, no frente a quien tenga acceso directo al archivo (podría ejecutar `DROP TRIGGER`). La protección del archivo depende del sistema operativo. La cadena de huellas de la auditoría detecta esos cambios (D-059, ver [AUDIT.md](AUDIT.md)).
 - `updated_at` lo actualiza la aplicación; no hay triggers para ello.
-- La purga de auditoría por retención (Bloque 10) requerirá una migración que lo contemple.
+- La auditoría no se purga por antigüedad (D-063).

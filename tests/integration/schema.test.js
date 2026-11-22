@@ -32,14 +32,14 @@ const run = (sql, ...params) => db.prepare(sql).run(...params);
 const get = (sql, ...params) => db.prepare(sql).get(...params);
 
 describe('esquema: estructura general', () => {
-  it('crea las 17 tablas del modelo (15 + redirecciones de la 007) más schema_migrations, todas STRICT', () => {
+  it('crea las 19 tablas del modelo (15 + redirecciones de la 007 + cadena de auditoría y purgas de la 008) más schema_migrations, todas STRICT', () => {
     const tables = db
       .prepare("SELECT name, strict FROM pragma_table_list WHERE schema = 'main' AND type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY name")
       .all();
     assert.deepEqual(
       tables.map((t) => t.name),
       [
-        'audit_logs', 'content_media', 'content_redirects', 'content_versions', 'contents', 'media', 'permissions', 'presentations', 'publication_reviews',
+        'audit_chain', 'audit_logs', 'content_media', 'content_redirects', 'content_versions', 'contents', 'media', 'media_purges', 'permissions', 'presentations', 'publication_reviews',
         'schema_migrations', 'section_redirects', 'section_types', 'sections', 'sessions', 'settings', 'user_section_permissions', 'user_sections', 'users',
       ],
     );

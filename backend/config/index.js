@@ -44,6 +44,8 @@ const DEFAULTS = Object.freeze({
   SESSION_IDLE_MINUTES: '30',
   TRUST_PROXY: 'false',
   MEDIA_MAX_BYTES: String(10 * 1024 * 1024),
+  BACKUP_INTERVAL_HOURS: '24',
+  BACKUP_KEEP: '14',
 });
 
 /** Rango admitido de MEDIA_MAX_BYTES: de 1 KiB a 50 MiB (los archivos se procesan en memoria). */
@@ -175,6 +177,7 @@ function parseEnum(key, value, allowed, issues) {
  *   session: { ttlMs: number, idleMs: number },
  *   trustProxy: boolean,
  *   media: { maxBytes: number },
+ *   backup: { intervalHours: number, keep: number },
  * }>}
  */
 export function loadConfig(env = process.env) {
@@ -215,9 +218,16 @@ export function loadConfig(env = process.env) {
     'MEDIA_MAX_BYTES', read(env, 'MEDIA_MAX_BYTES') ?? DEFAULTS.MEDIA_MAX_BYTES, ...MEDIA_MAX_BYTES_RANGE, issues,
   );
 
+  // Copias automáticas (Bloque 10): cada cuántas horas (0 = desactivadas) y cuántas se conservan.
+  const backupIntervalHours = parseIntInRange(
+    'BACKUP_INTERVAL_HOURS', read(env, 'BACKUP_INTERVAL_HOURS') ?? DEFAULTS.BACKUP_INTERVAL_HOURS, 0, 720, issues,
+  );
+  const backupKeep = parseIntInRange('BACKUP_KEEP', read(env, 'BACKUP_KEEP') ?? DEFAULTS.BACKUP_KEEP, 1, 365, issues);
+
   if (issues.length > 0) throw new ConfigError(issues);
 
   const session = Object.freeze({ ttlMs: ttlHours * 3_600_000, idleMs: idleMinutes * 60_000 });
   const media = Object.freeze({ maxBytes: mediaMaxBytes });
-  return Object.freeze({ env: nodeEnv, isProduction, host, port, baseUrl, logLevel, databasePath, storageDir, session, trustProxy, media });
+  const backup = Object.freeze({ intervalHours: backupIntervalHours, keep: backupKeep });
+  return Object.freeze({ env: nodeEnv, isProduction, host, port, baseUrl, logLevel, databasePath, storageDir, session, trustProxy, media, backup });
 }

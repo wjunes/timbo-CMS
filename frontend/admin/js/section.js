@@ -3,12 +3,13 @@
  */
 import { api, errorMessage } from './api.js';
 import { badge, formatDate, h, mount, notice, run } from './dom.js';
-import { can, navigate } from './state.js';
+import { can, isGeneralAdmin, navigate } from './state.js';
 
 export function sectionTabs(section, active) {
   return h('nav', { class: 'tabs', 'aria-label': 'Sección' },
     h('a', { href: `#/sections/${section.id}`, class: active === 'contents' ? 'active' : '', text: 'Contenidos' }),
-    h('a', { href: `#/sections/${section.id}/media`, class: active === 'media' ? 'active' : '', text: 'Biblioteca multimedia' }));
+    h('a', { href: `#/sections/${section.id}/media`, class: active === 'media' ? 'active' : '', text: 'Biblioteca multimedia' }),
+    isGeneralAdmin() ? h('a', { href: `#/sections/${section.id}/settings`, class: active === 'settings' ? 'active' : '', text: 'Configuración' }) : null);
 }
 
 export function sectionHeader(section) {

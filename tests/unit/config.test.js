@@ -138,3 +138,20 @@ describe('loadConfig', () => {
     assert.ok(!JSON.stringify(c).includes('super-secret'));
   });
 });
+
+describe('loadConfig: copias de seguridad (Bloque 10)', () => {
+  it('por defecto, copia automática cada 24 h y se conservan 14', () => {
+    assert.deepEqual(loadConfig({}).backup, { intervalHours: 24, keep: 14 });
+  });
+
+  it('acepta desactivarlas (0) y valores dentro de rango', () => {
+    assert.deepEqual(loadConfig({ BACKUP_INTERVAL_HOURS: '0', BACKUP_KEEP: '365' }).backup, { intervalHours: 0, keep: 365 });
+  });
+
+  it('rechaza valores fuera de rango o no numéricos', () => {
+    expectIssues({ BACKUP_INTERVAL_HOURS: '721' }, 'BACKUP_INTERVAL_HOURS');
+    expectIssues({ BACKUP_INTERVAL_HOURS: '-1' }, 'BACKUP_INTERVAL_HOURS');
+    expectIssues({ BACKUP_KEEP: '0' }, 'BACKUP_KEEP');
+    expectIssues({ BACKUP_KEEP: 'muchas' }, 'BACKUP_KEEP');
+  });
+});

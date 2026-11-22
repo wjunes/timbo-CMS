@@ -84,3 +84,7 @@ Los intentos de un administrador de sección se registran como `access.denied` (
 ## Ampliar los catálogos
 
 Una presentación o un tipo nuevos se añaden con una migración (`INSERT INTO presentations …` / `INSERT INTO section_types …`) junto con el código que los muestra en el sitio público. No requieren reconstruir tablas.
+
+## Panel (Bloque 10)
+
+El `general_admin` da de alta secciones desde la lista de secciones (**Nueva sección**) y las configura en su pestaña **Configuración**: nombre, descripción, slug, sección padre, presentación, flujo editorial, orden entre hermanas, activar, desactivar, archivar y eliminar. Antes de cambiar el slug o el padre se avisa de que cambia la dirección pública.

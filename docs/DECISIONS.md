@@ -181,7 +181,7 @@ Formato: contexto → decisión → consecuencias. Las decisiones solo se revisa
 
 - **Decisión:** `DELETE /api/contents/:id` marca `status = 'deleted'` con `deleted_by`/`deleted_at`; las versiones se conservan; el slug queda libre. El trigger `content_delete_forbidden` impide el borrado físico.
 - **Ajuste de una prueba del Bloque 02:** `tests/integration/schema.test.js` («el borrador es editable y descartable») borraba físicamente el contenido; ahora comprueba que la base lo impide. El resto de la prueba no cambia.
-- **Pendiente:** consulta y restauración de eliminados (sin bloque asignado; se propondrá más adelante).
+- **Pendiente:** consulta y restauración de eliminados. Queda fuera del alcance (D-063): hoy se recuperan restaurando una copia de seguridad.
 
 ## D-036 · El autor edita sus propios borradores con `content.create` (Bloque 06)
 
@@ -330,3 +330,58 @@ Formato: contexto → decisión → consecuencias. Las decisiones solo se revisa
   - `server.test.js`: el 404 genérico en JSON se comprueba en `/api/…`, porque las demás rutas las atiende el sitio público (404 en HTML).
 
   Las reglas que comprobaban siguen cumpliéndose.
+
+## D-059 · Integridad de la auditoría con una cadena de huellas (Bloque 10)
+
+- **Decisión:**
+  - cada entrada tiene en `audit_chain` la huella SHA-256 de la anterior más su forma canónica, calculada por la aplicación en la misma transacción;
+  - la base exige el orden y prohíbe modificar o borrar las huellas (migración 008);
+  - la huella no lleva clave; cada copia de seguridad guarda la última huella, que sirve de ancla al verificar.
+- **Motivo:**
+  - SQLite no tiene SHA-256 en SQL, y una función propia no se puede usar en triggers con `trusted_schema=OFF`;
+  - una huella con clave (HMAC) exigiría un secreto nuevo en el entorno.
+
+  Así se detecta cualquier cambio parcial; una reescritura completa solo se detecta comparando con las copias (ver [AUDIT.md](AUDIT.md)).
+- **Prueba anterior ajustada:** `schema.test.js` cuenta 19 tablas (`audit_chain` y `media_purges`). La regla que comprueba sigue cumpliéndose.
+
+## D-060 · Copias de seguridad y restauración controlada (Bloque 10)
+
+- **Decisión:**
+  - **Formato:** cada copia es un directorio con la base copiada con la API de backup de SQLite, los archivos multimedia y privados, y un manifiesto con versión, esquema, huellas y la última huella de la auditoría. Se verifica antes de aparecer en la lista.
+  - **Automáticas:** cada `BACKUP_INTERVAL_HOURS` horas (24 por defecto), con retención de las `BACKUP_KEEP` más recientes (14). Las manuales no se borran solas.
+  - **Restauración:** solo por línea de órdenes, con el servidor detenido (bloqueo `cms.lock`). Antes guarda el estado actual y después migra, revoca las sesiones y lo audita.
+- **Motivo:**
+  - todos los módulos mantienen abierta la conexión a la base: cambiarla en caliente exigiría reconstruir código aprobado y podría dejar peticiones a medias;
+  - restaurar es una operación de mantenimiento poco frecuente que debe poder hacerse aunque el panel no funcione.
+- **Sin descarga desde el panel:** las copias contienen los hashes de las contraseñas y pueden ser grandes. Llevarlas fuera del servidor es parte del despliegue (Bloque 11).
+
+## D-061 · Purga física controlada de archivos (Bloque 10, completa D-047)
+
+- **Decisión:** el `general_admin` purga en dos pasos: lista los candidatos y confirma. Son candidatos:
+  - los archivos eliminados que no usa ninguna versión de ningún contenido;
+  - los archivos sin registro con más de una hora;
+  - los temporales con más de una hora.
+
+  La purga queda en `media_purges` y la fila de `media` se conserva. La base impide purgar un archivo en uso y volver a usar uno purgado. No se purga durante una copia (mismo bloqueo).
+- **Motivo:** es el «procedimiento controlado» de la especificación. No se añade un borrado forzado de archivos en uso: retirar uno publicado pasa por editar o despublicar el contenido, eliminar el archivo y purgarlo. Así el historial y el sitio nunca quedan con referencias rotas.
+
+## D-062 · Pantallas de administración general (Bloque 10, completa D-045)
+
+- **Decisión:** el panel incorpora, solo para el `general_admin`:
+  - usuarios: alta, edición, estados, contraseña temporal, sesiones, secciones asignadas y permisos;
+  - alta y configuración de secciones;
+  - **Sistema:** configuración del sitio, auditoría, copias y purga.
+
+  Usan la API existente más tres nuevas: `/api/settings`, `/api/audit` y `/api/backups`, además de `/api/media/purge`. La configuración es una lista cerrada de ajustes de texto plano (`siteName`, `siteDescription`), auditada con el valor anterior y el nuevo.
+- **Motivo:** son las pantallas que D-045 aplazó. La configuración no admite HTML ni código: el sitio público la escapa siempre.
+
+## D-063 · Sin purga de la auditoría ni restauración de contenidos eliminados (Bloque 10)
+
+- **Decisión:**
+  - el registro de auditoría no se purga por antigüedad;
+  - la consulta y restauración de contenidos eliminados no se implementa;
+  - lo eliminado se recupera restaurando una copia de seguridad.
+- **Motivo:**
+  - ninguna de las dos cosas está en la especificación;
+  - purgar la auditoría debilitaría su inmutabilidad y su cadena de huellas;
+  - el registro crece poco: una fila por operación.

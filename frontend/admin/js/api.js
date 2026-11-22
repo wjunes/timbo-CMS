@@ -98,6 +98,27 @@ const MESSAGES = {
   forbidden_origin: 'Petición rechazada por seguridad (origen).',
   invalid_csrf_token: 'La sesión no es válida. Recarga la página.',
   password_change_required: 'Debes cambiar tu contraseña antes de continuar.',
+  // Bloque 10: usuarios, secciones y sistema
+  username_or_email_taken: 'Ese usuario o correo ya existe.',
+  target_protected: 'La cuenta de administración general no se gestiona desde el panel.',
+  invalid_status_transition: 'El cambio de estado no es posible desde el estado actual.',
+  user_disabled: 'La cuenta está desactivada.',
+  section_not_assigned: 'La sección no está asignada a este usuario.',
+  assignment_not_found: 'La sección ya no estaba asignada.',
+  section_not_found: 'La sección no existe.',
+  pending_reviews_exist: 'Hay versiones en revisión: resuélvelas antes de pasar a publicación directa.',
+  system_section_protected: 'Es una sección del sistema: no se puede archivar ni eliminar.',
+  section_in_use: 'La sección tiene subsecciones, contenidos o archivos: no se puede eliminar.',
+  order_mismatch: 'El orden cambió mientras tanto. Recarga e inténtalo de nuevo.',
+  section_cycle: 'Una sección no puede colgar de sí misma ni de una subsección suya.',
+  section_depth_exceeded: 'Se superaría la profundidad máxima (3 niveles).',
+  parent_archived: 'La sección padre está archivada.',
+  section_has_active_children: 'Tiene subsecciones activas: desactívalas o archívalas antes.',
+  service_busy: 'El servidor está ocupado. Inténtalo en unos segundos.',
+  backup_in_progress: 'Hay una copia de seguridad en curso. Inténtalo cuando termine.',
+  backup_not_found: 'La copia de seguridad no existe.',
+  purge_candidates_changed: 'La lista de archivos cambió mientras tanto. Recarga e inténtalo de nuevo.',
+  internal_error: 'Error interno del servidor. Consulta el registro.',
 };
 
 const REJECT_REASONS = {
@@ -114,6 +135,7 @@ const FIELD_CODES = {
   invalid_characters: 'caracteres no válidos', empty: 'vacío', policy: 'no cumple la política',
   media_not_available: 'un archivo ya no está disponible', media_not_image: 'el archivo no es una imagen',
   link_href_not_allowed: 'destino de enlace no permitido', link_href_invalid: 'destino de enlace no válido',
+  reserved: 'reservado', not_found: 'no existe', invalid_value: 'valor no válido', invalid_type: 'tipo no válido', unknown_field: 'campo desconocido', empty_update: 'sin cambios',
 };
 
 /** Texto legible para un error (nunca HTML). */

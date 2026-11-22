@@ -2,7 +2,7 @@
 
 CMS web de sitio único con múltiples secciones independientes, administración centralizada (`general_admin`) y administradores delegados por sección, con flujo editorial, versionado y gestión multimedia.
 
-> **Estado actual:** Bloque 09 (sitio público y presentación adaptable) — aprobado. Siguiente: Bloque 10 (auditoría, copias de seguridad y administración general).
+> **Estado actual:** Bloque 10 (auditoría, copias de seguridad, restauración y administración general) — aprobado. Siguiente: Bloque 11 (pruebas integrales, seguridad y despliegue).
 > Hay base de datos, autenticación y API de usuarios, permisos, secciones, contenidos con versionado y flujo editorial (revisión, aprobación y publicación); además, multimedia con validación real de archivos y el núcleo del panel de administración (`/admin/`) con el editor Tiptap. También hay sitio público (HTML generado en el servidor, sin JavaScript) que muestra solo lo publicado. Ver [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ## Requisitos
@@ -32,6 +32,10 @@ npm run check          # verifica Node.js, APIs nativas, configuración y estado
 | `npm run db:migrate` | Aplica las migraciones pendientes. |
 | `npm run db:status` | Muestra migraciones aplicadas y pendientes (no modifica nada). |
 | `npm run admin:create` | Crea el administrador general (falla si ya existe). |
+| `npm run backup:create` | Crea una copia de seguridad (también con el servidor en marcha). |
+| `npm run backup:list` / `npm run backup:verify -- <id>` | Lista o verifica las copias. |
+| `npm run backup:prune` | Aplica la retención a las copias automáticas. |
+| `npm run backup:restore -- <id> --confirm` | Restaura una copia **con el servidor detenido** (ver [docs/BACKUPS.md](docs/BACKUPS.md)). |
 | `npm run build:editor` | Regenera el bundle del editor (`frontend/admin/assets/editor.bundle.js`, versionado) tras cambiar Tiptap o `frontend/components/editor/`. |
 | `npm run admin:reset-password` | Cambia la contraseña del administrador general y revoca sus sesiones. |
 | `npm run test:security` | Ejecuta las pruebas de seguridad. |
@@ -39,7 +43,7 @@ npm run check          # verifica Node.js, APIs nativas, configuración y estado
 | `npm run test:unit` / `npm run test:integration` | Ejecuta un subconjunto. |
 
 Con la configuración por defecto el servidor escucha en `http://127.0.0.1:3000`.
-Endpoints: `GET /health`, la API de autenticación (`/api/auth/*`, ver [docs/AUTH.md](docs/AUTH.md)), la de administración de usuarios y permisos (`/api/users`, `/api/permissions`, ver [docs/USERS.md](docs/USERS.md)) la de secciones (`/api/sections`, `/api/section-types`, `/api/presentations`, ver [docs/SECTIONS.md](docs/SECTIONS.md)) la de contenidos y versiones (`/api/sections/:id/contents`, `/api/contents`, ver [docs/CONTENTS.md](docs/CONTENTS.md)), la del flujo editorial (transiciones en `/api/contents/:id/…`, `/api/reviews/pending`, ver [docs/EDITORIAL.md](docs/EDITORIAL.md)) y la multimedia (`/api/sections/:id/media`, `/api/media`, ver [docs/MEDIA.md](docs/MEDIA.md)). El panel está en `/admin/` y el sitio público en `/` (ver [docs/PUBLIC.md](docs/PUBLIC.md)).
+Endpoints: `GET /health`, la API de autenticación (`/api/auth/*`, ver [docs/AUTH.md](docs/AUTH.md)), la de administración de usuarios y permisos (`/api/users`, `/api/permissions`, ver [docs/USERS.md](docs/USERS.md)) la de secciones (`/api/sections`, `/api/section-types`, `/api/presentations`, ver [docs/SECTIONS.md](docs/SECTIONS.md)) la de contenidos y versiones (`/api/sections/:id/contents`, `/api/contents`, ver [docs/CONTENTS.md](docs/CONTENTS.md)), la del flujo editorial (transiciones en `/api/contents/:id/…`, `/api/reviews/pending`, ver [docs/EDITORIAL.md](docs/EDITORIAL.md)) la multimedia (`/api/sections/:id/media`, `/api/media`, ver [docs/MEDIA.md](docs/MEDIA.md)), y la de auditoría, copias y configuración (`/api/audit`, `/api/backups`, `/api/settings`, ver [docs/AUDIT.md](docs/AUDIT.md) y [docs/BACKUPS.md](docs/BACKUPS.md)). El panel está en `/admin/` y el sitio público en `/` (ver [docs/PUBLIC.md](docs/PUBLIC.md)).
 El servidor **no arranca** si la base de datos no existe o tiene migraciones pendientes: ejecute antes `npm run db:migrate`.
 
 ## Configuración
@@ -54,10 +58,12 @@ Variables admitidas (ver [.env.example](.env.example)):
 | `APP_BASE_URL` | derivada | Obligatoria y `https` en producción. |
 | `LOG_LEVEL` | `info` | `error`, `warn`, `info`, `debug`. |
 | `DATABASE_PATH` | `database/cms.db` | Relativa a la raíz del proyecto o absoluta. Disco local (no OneDrive/red). Fuera de `frontend/`. `:memory:` solo fuera de producción. |
-| `STORAGE_DIR` | `storage` | Archivos subidos y backups. Fuera de `frontend/`. |
+| `STORAGE_DIR` | `storage` | Archivos subidos, privados y copias de seguridad. Fuera de `frontend/`. |
 | `MEDIA_MAX_BYTES` | `10485760` | Tamaño máximo de cada archivo subido (1 KiB–50 MiB). |
 | `SESSION_TTL_HOURS` | `8` | Duración máxima de la sesión (1–72). |
 | `SESSION_IDLE_MINUTES` | `30` | Cierre por inactividad (5–1440, no mayor que la duración máxima). |
+| `BACKUP_INTERVAL_HOURS` | `24` | Copias automáticas cada N horas (0–720; 0 las desactiva). |
+| `BACKUP_KEEP` | `14` | Copias automáticas que se conservan (1–365). Las manuales no se borran solas. |
 | `TRUST_PROXY` | `false` | `true` solo detrás de un proxy inverso propio que sobrescriba `X-Forwarded-For`. |
 
 Si la configuración es inválida, el servidor no arranca e informa de todos los problemas.
@@ -73,6 +79,8 @@ Si la configuración es inválida, el servidor no arranca e informa de todos los
 - [Flujos editoriales y aprobaciones](docs/EDITORIAL.md)
 - [Editor, multimedia y panel](docs/MEDIA.md)
 - [Sitio público](docs/PUBLIC.md)
+- [Auditoría](docs/AUDIT.md)
+- [Copias de seguridad y restauración](docs/BACKUPS.md)
 - [Hoja de ruta](docs/ROADMAP.md)
 - [Decisiones técnicas](docs/DECISIONS.md)
 - [Seguridad](docs/SECURITY.md)

@@ -91,3 +91,7 @@ Las rutas declaran el rol que exigen (`role: 'general_admin'`) y `app.js` lo com
 | `access.denied` | `{ method, path, requiredRole }` |
 
 Ninguna entrada contiene contraseñas, temporales ni definitivas.
+
+## Panel (Bloque 10)
+
+En **Usuarios** el `general_admin` da de alta administradores de sección, edita sus datos, los suspende, reactiva o desactiva, les asigna una contraseña temporal, cierra sus sesiones y gestiona sus secciones y permisos. La cuenta `general_admin` no se gestiona desde el panel (`403 target_protected`); se administra con `npm run admin:reset-password`.

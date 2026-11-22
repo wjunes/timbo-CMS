@@ -127,4 +127,4 @@ Cada transición se audita en su transacción (entidad `content`, con la secció
 
 - Publicación programada y notificaciones: no están en la especificación.
 - Interfaz del panel: hecha en el Bloque 08 (ver [MEDIA.md](MEDIA.md)).
-- Consulta y restauración de contenidos eliminados: sigue sin bloque asignado.
+- Consulta y restauración de contenidos eliminados: fuera del alcance (D-063).

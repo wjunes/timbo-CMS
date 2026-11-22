@@ -13,7 +13,7 @@ Estados: `PENDING` · `IN_PROGRESS` · `VALIDATION` · `APPROVED` · `BLOCKED`
 | 07 | Flujos editoriales y aprobaciones | `APPROVED` |
 | 08 | Editor enriquecido y multimedia | `APPROVED` |
 | 09 | Sitio público y presentación adaptable | `APPROVED` |
-| 10 | Auditoría, copias de seguridad y restauración (y pantallas de administración general, D-045) | `PENDING` |
+| 10 | Auditoría, copias de seguridad y restauración (y pantallas de administración general, D-045) | `APPROVED` |
 | 11 | Pruebas integrales, seguridad y despliegue | `PENDING` |
 
 Cada bloque requiere aprobación explícita antes de comenzar el siguiente.
@@ -215,5 +215,42 @@ Cada bloque requiere aprobación explícita antes de comenzar el siguiente.
 - [x] Todo dato escapado; sin JavaScript ni nada en línea; CSP sin scripts, también en las respuestas `304`.
 - [x] Sin path traversal ni redirecciones abiertas; `/api` y `/admin` intactos.
 - [x] Todas las pruebas pasan (incluidas las de los Bloques 01–08); flujo de extremo a extremo con el servidor real y un navegador.
+- [x] Documentación actualizada.
+- [x] Revisión y aprobación del responsable del proyecto (2026-11-22).
+
+## Bloque 10 — Detalle
+
+**Alcance:**
+
+- auditoría:
+  - consulta con filtros;
+  - cadena de huellas con verificación y anclas en las copias (D-059);
+  - registro de configuración, copias, purga y restauración;
+- copias de seguridad (D-060):
+  - base coherente, archivos multimedia y privados, y manifiesto;
+  - verificación, copias manuales y automáticas, y retención;
+- restauración controlada por línea de órdenes, con el servidor detenido;
+- purga controlada de archivos (D-061);
+- configuración del sitio;
+- pantallas de usuarios, permisos, secciones y sistema (D-062);
+- migración 008, pruebas y documentación ([AUDIT.md](AUDIT.md), [BACKUPS.md](BACKUPS.md)).
+
+**Fuera de alcance:**
+
+- copiar las copias fuera del servidor, cifrarlas y desplegar (Bloque 11);
+- descargar o restaurar copias desde el panel (D-060);
+- purgar la auditoría y restaurar contenidos eliminados (D-063).
+
+**Criterios de aceptación:**
+
+- [x] Se registran todas las operaciones que exige la especificación, también configuración, copias y restauración.
+- [x] La auditoría no se puede modificar desde el panel ni desde la API, y se puede verificar su integridad (detecta modificaciones, borrados y reescrituras con las anclas).
+- [x] Las copias incluyen una base coherente (sin copiar el archivo en uso), los archivos multimedia y privados, y un manifiesto con fecha, versión y huellas.
+- [x] La verificación detecta archivos alterados, borrados o añadidos, una base dañada y rutas fuera de la copia.
+- [x] Hay copias manuales (panel y línea de órdenes) y automáticas, con retención.
+- [x] La restauración es controlada: exige el servidor detenido, verifica, comprueba el esquema, guarda el estado anterior, migra, revoca las sesiones y lo audita. Probada con el servidor real.
+- [x] Los archivos se purgan con un procedimiento controlado, sin tocar nunca los que están en uso.
+- [x] Pantallas de usuarios, permisos, secciones, configuración, auditoría y copias, probadas en un navegador real (escritorio y 375 px, sin violaciones de CSP).
+- [x] Todas las pruebas pasan (incluidas las de los Bloques 01–09).
 - [x] Documentación actualizada.
 - [x] Revisión y aprobación del responsable del proyecto (2026-11-22).

@@ -1,6 +1,7 @@
 /**
  * Panel de administración (Bloque 08): arranque, sesión, navegación y vistas
  * generales (acceso, cambio de contraseña, secciones y cola de revisión).
+ * Bloque 10: usuarios, administración de secciones y sistema (D-045).
  *
  * Aplicación de una página sin frameworks. La navegación usa el fragmento
  * (#/…) para que el servidor solo sirva index.html.
@@ -11,6 +12,9 @@ import { badge, formatDate, h, mount, notice, run } from './dom.js';
 import { renderEditor } from './editor.js';
 import { renderLibrary } from './media.js';
 import { renderSection } from './section.js';
+import { newSectionForm, renderSectionSettings } from './section-admin.js';
+import { renderAudit, renderBackups, renderPurge, renderSettings } from './system.js';
+import { renderUser, renderUsers } from './users.js';
 import { isGeneralAdmin, navigate, state } from './state.js';
 
 const root = document.getElementById('app');
@@ -42,6 +46,8 @@ function layout(...content) {
   const nav = h('nav', { class: 'topnav', 'aria-label': 'Principal' },
     h('a', { href: '#/sections', text: 'Secciones' }),
     isGeneralAdmin() ? h('a', { href: '#/reviews', text: 'Revisión' }) : null,
+    isGeneralAdmin() ? h('a', { href: '#/users', text: 'Usuarios' }) : null,
+    isGeneralAdmin() ? h('a', { href: '#/system/settings', text: 'Sistema' }) : null,
     h('a', { href: '#/password', text: 'Contraseña' }),
     h('button', { type: 'button', class: 'link', text: 'Salir', onClick: logout }));
   return [
@@ -128,7 +134,8 @@ function renderPassword() {
 async function renderSections() {
   const { sections } = await api('/api/sections');
   const rows = sections.map((s) => h('tr', {},
-    h('td', {}, h('a', { href: `#/sections/${s.id}`, text: s.name })),
+    h('td', { class: `depth-${s.depth}` }, h('a', { href: `#/sections/${s.id}`, text: s.name }),
+      isGeneralAdmin() ? [' ', h('a', { class: 'small', href: `#/sections/${s.id}/settings`, text: 'Configurar' })] : null),
     h('td', { class: 'mono', text: s.path }),
     h('td', { text: s.workflow === 'approval' ? 'Con aprobación' : 'Directa' }),
     h('td', {}, badge(s.status))));
@@ -136,7 +143,8 @@ async function renderSections() {
     h('h1', { text: 'Secciones' }),
     sections.length
       ? h('table', { class: 'grid' }, h('thead', {}, h('tr', {}, h('th', { text: 'Nombre' }), h('th', { text: 'Ruta' }), h('th', { text: 'Publicación' }), h('th', { text: 'Estado' }))), h('tbody', {}, rows))
-      : notice('info', 'No tienes secciones asignadas.')));
+      : notice('info', 'No tienes secciones asignadas.'),
+    isGeneralAdmin() ? await newSectionForm(sections) : null));
 }
 
 async function renderReviews() {
@@ -161,6 +169,13 @@ const ROUTES = [
   [/^#\/sections$/, () => renderSections()],
   [/^#\/sections\/(\d+)$/, (m) => renderSection(root, layout, Number(m[1]))],
   [/^#\/sections\/(\d+)\/media$/, (m) => renderLibrary(root, layout, Number(m[1]))],
+  [/^#\/sections\/(\d+)\/settings$/, (m) => renderSectionSettings(root, layout, Number(m[1]))],
+  [/^#\/users$/, () => renderUsers(root, layout)],
+  [/^#\/users\/(\d+)$/, (m) => renderUser(root, layout, Number(m[1]))],
+  [/^#\/system\/settings$/, () => renderSettings(root, layout)],
+  [/^#\/system\/audit$/, () => renderAudit(root, layout)],
+  [/^#\/system\/backups$/, () => renderBackups(root, layout)],
+  [/^#\/system\/purge$/, () => renderPurge(root, layout)],
   [/^#\/contents\/(\d+)$/, (m) => renderContent(root, layout, Number(m[1]))],
   [/^#\/contents\/(\d+)\/versions\/(\d+)\/edit$/, (m) => renderEditor(root, layout, Number(m[1]), Number(m[2]))],
   [/^#\/reviews$/, () => renderReviews()],

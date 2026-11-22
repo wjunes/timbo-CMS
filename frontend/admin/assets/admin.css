@@ -142,3 +142,31 @@ button.tool[aria-pressed=true] { background: #dbe7fb; border-color: var(--accent
   .topnav { margin-left: 0; }
   table.grid { display: block; overflow-x: auto; }
 }
+
+/* --- Bloque 10: usuarios, secciones y sistema */
+.cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 0 1rem; }
+.cols label > select { margin-top: .25rem; font-weight: 400; }
+.card + .card, .card + section, section + .card, .table-wrap + .card { margin-top: 1rem; }
+details.card > summary { cursor: pointer; font-weight: 600; }
+details.card[open] > summary { margin-bottom: .5rem; }
+.perm-set { border: 1px solid var(--border); border-radius: var(--radius); margin: 0 0 .75rem; padding: .5rem .9rem; }
+.perm-set legend { font-weight: 600; padding: 0 .3rem; }
+.perm-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 0 1rem; }
+.perm-grid label.check { margin: .3rem 0; }
+.table-wrap { overflow-x: auto; }
+table.audit td.details { max-width: 28rem; overflow-wrap: anywhere; }
+ul.plain { margin: 0; padding-left: 1.1rem; }
+pre.mono { background: #f0f2f5; padding: .6rem .8rem; border-radius: var(--radius); overflow-x: auto; }
+td.depth-2 { padding-left: 1.6rem; }
+td.depth-3 { padding-left: 2.6rem; }
+.badge-user-active, .badge-outcome-success { background: #dff3e6; color: #0f5132; }
+.badge-user-suspended, .badge-warning { background: #fff1d6; color: #7a4b00; }
+.badge-user-disabled { background: #eceef1; color: #5d6675; }
+.badge-outcome-failure, .badge-outcome-denied { background: #fde3e1; color: #8a1c12; }
+.filters .cols { align-items: end; }
+/* La navegación tiene más enlaces para la administración general: en pantallas estrechas pasa a varias líneas. */
+.topnav { flex-wrap: wrap; row-gap: .35rem; }
+.card > h2:first-child, .card > header + h2, form.card > h2:first-child { margin-top: 0; }
+/* La auditoría tiene muchas columnas: en pantallas estrechas se desplaza dentro de su contenedor en lugar de comprimirse. */
+table.grid.audit { min-width: 900px; }
+.tabs { flex-wrap: wrap; }

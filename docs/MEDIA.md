@@ -68,7 +68,19 @@ El servidor nunca interpreta ni ejecuta los archivos; `storage/` no se sirve por
 - El borrado es lógico: el registro pasa a `deleted` y el archivo físico se conserva.
 - Se rechaza con `409 media_in_use`, con la lista de usos, si lo usa alguna versión en borrador, en revisión, aprobada o publicada de un contenido no eliminado.
 - Las versiones archivadas o con cambios solicitados no lo impiden. Por eso se conserva el archivo: el historial sigue siendo consultable.
-- La purga física controlada es del Bloque 10.
+- La purga física controlada se hace desde **Sistema → Purga de archivos** (Bloque 10, D-061, ver abajo).
+
+### Purga (D-061)
+
+`GET /api/media/purge` lista los candidatos y `POST /api/media/purge` (`{ mediaIds, orphans, temporary }`) purga los confirmados. Solo `general_admin`.
+
+- **Candidatos:**
+  - archivos eliminados que no usa ninguna versión de ningún contenido, tampoco antigua;
+  - archivos sin registro con más de una hora;
+  - temporales `.tmp-*` con más de una hora.
+- **Revalidación:** cada elemento confirmado debe seguir siendo candidato; si no, responde `409 purge_candidates_changed` sin tocar nada.
+- **Registro:** la purga queda en `media_purges` y en la auditoría (`media.purge`); la fila de `media` se conserva. Después se borran los archivos. Si un borrado falla, el archivo aparece en la siguiente purga.
+- **Copias:** no se purga durante una copia de seguridad; las copias anteriores conservan los archivos.
 
 ## Imágenes y documentos en el cuerpo (D-050)
 
@@ -159,10 +171,10 @@ Aplicación de una página en `/admin/`, con JavaScript y CSS propios, sin frame
 - **Archivos del panel:** se sirven desde una lista cerrada que se construye al arrancar, con solo extensiones conocidas y sin archivos ocultos. La ruta pedida nunca se convierte en una ruta del disco, así que no hay path traversal posible. Solo admite `GET` y `HEAD`.
 - **Permisos:** los permisos que usa el panel para mostrar u ocultar acciones son informativos; el backend decide siempre.
 
-Las pantallas de usuarios, permisos, secciones y configuración no forman parte de este bloque (ver [ROADMAP.md](ROADMAP.md)). Su API ya existe.
+El Bloque 10 añade las pantallas de usuarios y permisos, alta y configuración de secciones, y **Sistema** (configuración, auditoría, copias y purga), solo para el `general_admin` (D-062).
 
 ## Limitaciones conocidas
 
 - **Subidas lentas:** el tiempo máximo de una petición se amplió a 120 s para que se pueda subir un archivo de 10 MiB con una conexión lenta (D-053).
-- **Archivos huérfanos:** si el proceso se detiene entre el renombrado y el registro en la base, queda un archivo sin registro, y pueden quedar temporales `.tmp-*`. Su limpieza corresponde a la purga controlada del Bloque 10.
+- **Archivos huérfanos:** si el proceso se detiene entre el renombrado y el registro en la base, queda un archivo sin registro, y pueden quedar temporales `.tmp-*`. Se limpian con la purga controlada (D-061).
 - **Listado de la biblioteca:** devuelve todos los archivos activos de la sección, sin paginar.

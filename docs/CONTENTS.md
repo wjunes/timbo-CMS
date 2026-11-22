@@ -163,4 +163,4 @@ Cada escritura se audita en la misma transacción (entidad `content`):
 
 ## Pendiente en otros bloques
 
-- Consulta y restauración de contenidos eliminados: sin bloque asignado todavía (se propondrá en el Bloque 10).
+- Consulta y restauración de contenidos eliminados: fuera del alcance (D-063); se recuperan restaurando una copia de seguridad.

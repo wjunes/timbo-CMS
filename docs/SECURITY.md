@@ -2,7 +2,7 @@
 
 La seguridad forma parte del diseño desde el Bloque 01. Este documento distingue entre lo **implementado y verificado** y lo **planificado**.
 
-## Implementado (Bloques 01–09)
+## Implementado (Bloques 01–10)
 
 | Medida | Dónde | Verificación |
 | --- | --- | --- |
@@ -76,6 +76,11 @@ La seguridad forma parte del diseño desde el Bloque 01. Este documento distingu
 | Sitio público sin JavaScript: plantillas del sistema con escapado contextual, CSP sin scripts (también en los `304`), sin cookies | `modules/public/views.js`, `index.js` | idem; navegador real sin violaciones de CSP |
 | Rutas públicas validadas por segmentos (sin path traversal); la barra final y las redirecciones solo llevan a rutas propias (sin redirección abierta) | `modules/public/index.js` | `tests/security/public.security.test.js` |
 | Contenidos y subsecciones no comparten URL; redirecciones registradas por la base | migración 007 | `tests/integration/schema.test.js`, `sections.test.js` |
+| Auditoría inmodificable (sin rutas de escritura, triggers) y verificable: cadena de huellas SHA-256 con anclas en las copias | `modules/audit`, migración 008 | `tests/integration/audit.test.js`, `backups.test.js` |
+| Copias de seguridad coherentes (API de backup de SQLite), con manifiesto y huellas; verificación completa; rutas del manifiesto validadas; sin enlaces simbólicos | `modules/backups/service.js` | `tests/integration/backups.test.js`, `tests/security/maintenance.security.test.js` |
+| Restauración solo con el servidor detenido (bloqueo), de copias verificadas y de esquema compatible, con copia previa, revocación de sesiones y auditoría | `modules/backups/restore.js`, `server.js` | `tests/integration/backups.test.js`; prueba con el servidor real |
+| Purga de archivos en dos pasos, revalidada y nunca de archivos en uso (también por trigger) | `modules/media/purge.js`, migración 008 | `tests/integration/maintenance.test.js` |
+| Auditoría, copias, purga y configuración solo para `general_admin`; mismo origen y CSRF en las que modifican estado | rutas de cada módulo | `tests/security/maintenance.security.test.js` |
 | Dependencias del editor fijadas, con más de dos semanas de antigüedad, solo de desarrollo; bundle local (sin CDN) verificado contra ellas | `package.json`, `scripts/build-editor.js` | `tests/unit/editor-schema.test.js` |
 
 ## Planificado
@@ -83,9 +88,7 @@ La seguridad forma parte del diseño desde el Bloque 01. Este documento distingu
 | Medida | Bloque |
 | --- | --- |
 | Consultas SQL parametrizadas en todos los repositorios (restricciones e integridad referencial: hechas en el Bloque 02) | 03+ |
-| Purga controlada de archivos eliminados, huérfanos y temporales | 10 |
-| Registro de operaciones críticas en la auditoría (tabla de solo inserción: hecha en el Bloque 02); verificación de integridad (cadena de hashes) | 04+ / 10 |
-| Backups consistentes (`node:sqlite` `backup()`), manifiesto, verificación de integridad | 10 |
+| Copias fuera del servidor (y su cifrado) | 11 |
 | HTTPS en producción (terminación TLS / proxy inverso), revisión final | 11 |
 
 ## Principios
