@@ -92,6 +92,24 @@ export async function readJsonBody(req, { limit = DEFAULT_BODY_LIMIT } = {}) {
   return body;
 }
 
+/**
+ * Lee un cuerpo binario completo con límite de tamaño (subida de archivos, Bloque 08).
+ * Rechaza antes de leer si Content-Length declara más del límite.
+ * @returns {Promise<Buffer>}
+ */
+export async function readRawBody(req, { limit }) {
+  const declared = req.headers['content-length'];
+  if (declared !== undefined && Number(declared) > limit) throw new HttpError(413, 'payload_too_large');
+  const chunks = [];
+  let size = 0;
+  for await (const chunk of req) {
+    size += chunk.length;
+    if (size > limit) throw new HttpError(413, 'payload_too_large');
+    chunks.push(chunk);
+  }
+  return Buffer.concat(chunks, size);
+}
+
 // ---------------------------------------------------------------------------
 // IP del cliente
 // ---------------------------------------------------------------------------

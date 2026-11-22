@@ -36,7 +36,7 @@ unidades de red, y las carpetas sincronizadas (OneDrive, Dropbox…) pueden corr
 - Las migraciones no pueden contener `BEGIN`/`COMMIT`/`ROLLBACK`/`SAVEPOINT` propios.
 - **El servidor no migra al arrancar:** si hay migraciones pendientes o inconsistentes, no arranca. Hay que ejecutar `npm run db:migrate` explícitamente.
 
-## Modelo (migraciones 001–005)
+## Modelo (migraciones 001–006)
 
 Todas las tablas son `STRICT`. Las fechas se guardan como TEXT ISO-8601 UTC con milisegundos. Los booleanos son `INTEGER` 0/1.
 
@@ -173,6 +173,21 @@ Añade triggers y un índice, y actualiza la descripción de `content.publish` (
 | En secciones `approval` un borrador no se publica sin aprobación | `approval_required` |
 
 Ver [EDITORIAL.md](EDITORIAL.md).
+
+### Migración 006 (Bloque 08)
+
+Añade triggers y actualiza la descripción de `media.upload` (D-052). No cambia tablas: `media` y `content_media` son de la migración 001.
+
+| Regla | Código |
+| --- | --- |
+| Los datos del archivo (clave, nombre, tipo, tamaño, hash, dimensiones, sección, autoría) son inmutables; solo cambian el texto alternativo y el estado | `media_immutable` |
+| Un archivo eliminado no se reactiva ni se edita | `media_deleted` |
+| No se elimina un archivo usado por una versión en borrador, en revisión, aprobada o publicada de un contenido no eliminado | `media_in_use` |
+| No se suben archivos a una sección archivada | `section_archived` |
+| Una versión solo referencia archivos de su sección | `media_section_mismatch` |
+| No se envía a revisión ni se publica una versión que referencia un archivo eliminado | `media_not_available` |
+
+Los archivos están en `STORAGE_DIR/media/` y nunca en la base. Ver [MEDIA.md](MEDIA.md).
 
 ## Concurrencia
 

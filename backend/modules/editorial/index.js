@@ -14,7 +14,8 @@
  * - Despublicar y archivar retiran contenido y no requieren aprobación (D-042).
  * - Publicar nunca sobrescribe: la versión publicada anterior pasa a 'archived'
  *   en la misma transacción. El cuerpo se vuelve a validar antes de enviar y
- *   de publicar.
+ *   de publicar, y también sus archivos: activos y de la misma sección (Bloque 08).
+ *   Al enviar o publicar un borrador se fijan sus referencias en content_media.
  * - Autorización y visibilidad como en contenidos: 404 si no se ve la sección,
  *   403 auditado si falta el permiso. Cada transición se audita en su transacción.
  */
@@ -26,6 +27,7 @@ import { createAuditLog } from '../audit/audit.js';
 import { validateBody } from '../contents/body.js';
 import { toContent, toVersion } from '../contents/index.js';
 import { createContentRepository } from '../contents/repository.js';
+import { createMediaReferences } from '../media/references.js';
 import { createAuthorizer } from '../permissions/authorizer.js';
 import { createEditorialRepository } from './repository.js';
 
@@ -35,7 +37,7 @@ export const REVIEW_COMMENT_MAX_LENGTH = 5000;
 const TRIGGER_CONFLICTS = Object.freeze([
   'version_invalid_transition', 'review_required', 'approval_required', 'reviewer_must_be_general_admin',
   'version_not_pending_review', 'version_is_published', 'published_version_not_published', 'content_version_immutable',
-  'section_archived', 'content_not_editable',
+  'section_archived', 'content_not_editable', 'media_not_available', 'media_section_mismatch',
 ]);
 
 /** Estado cambiado entre la comprobación y la escritura (o restricción única violada). */
@@ -84,6 +86,7 @@ export function createEditorialModule({ db }) {
   const editorial = createEditorialRepository(db);
   const authorizer = createAuthorizer(db);
   const audit = createAuditLog(db);
+  const mediaRefs = createMediaReferences(db);
   const sectionById = db.prepare('SELECT id, status, workflow FROM sections WHERE id = ?');
 
   const user = (ctx) => ctx.auth.session.user;
@@ -130,10 +133,16 @@ export function createEditorialModule({ db }) {
     if (!allowArchivedContent && row.status === 'archived') throw new HttpError(409, 'content_not_editable');
   }
 
-  /** El cuerpo guardado debe seguir cumpliendo la lista blanca (D-033) antes de enviarlo o publicarlo. */
-  function assertPublishableBody(version) {
+  /**
+   * Antes de enviar o publicar, el cuerpo guardado debe seguir cumpliendo la
+   * lista blanca (D-033) y sus archivos deben estar disponibles (D-050).
+   * @returns {{ mediaId: number, path: string }[]} referencias a la biblioteca
+   */
+  function assertPublishable({ section, version }) {
     const result = validateBody(JSON.parse(version.body));
     if (!result.ok) throw new HttpError(409, 'body_invalid', {}, { fields: { body: result.code }, bodyPath: result.path });
+    mediaRefs.assertPublishable(section.id, result.media);
+    return result.media;
   }
 
   function assertRevision(version, revision) {
@@ -168,11 +177,12 @@ export function createEditorialModule({ db }) {
       if (s.section.workflow !== 'approval') throw new HttpError(409, 'review_not_required');
       if (s.version.status !== 'draft') throw invalidTransition(s.version.status);
       assertRevision(s.version, input.revision);
-      assertPublishableBody(s.version);
+      return assertPublishable(s);
     };
     check(initial);
     const s = inTransaction(db, () => {
-      const state = reload(ctx, check);
+      const state = load(ctx);
+      mediaRefs.sync(state.version.id, check(state));
       if (!editorial.submit(state.version.id, input.revision, actor(ctx))) throw stateChanged();
       contents.touch(state.row.id);
       record(ctx, 'version.submit', state, { versionId: state.version.id, versionNumber: state.version.version_number });
@@ -222,11 +232,14 @@ export function createEditorialModule({ db }) {
       } else if (status !== 'approved') {
         throw invalidTransition(status);
       }
-      assertPublishableBody(s.version);
+      return assertPublishable(s);
     };
     check(initial);
     const s = inTransaction(db, () => {
-      const state = reload(ctx, check);
+      const state = load(ctx);
+      const media = check(state);
+      // Las referencias de una versión aprobada ya quedaron fijadas al enviarla.
+      if (state.version.status === 'draft') mediaRefs.sync(state.version.id, media);
       const previousVersionId = state.row.published_version_id;
       if (!editorial.publish({ contentId: state.row.id, versionId: state.version.id, previousVersionId, userId: actor(ctx) })) {
         throw stateChanged();

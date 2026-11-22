@@ -34,8 +34,8 @@ Los permisos se conceden **por sección**. El catálogo es parte del sistema: a�
 | `content.unpublish` | Despublicar | Bloque 07 |
 | `content.archive` | Archivar y restaurar | Bloque 07 |
 | `content.delete` | Eliminar (borrado lógico) | Bloque 06 |
-| `media.upload` | Subir archivos | Bloque 08 |
-| `media.delete` | Eliminar archivos no usados | Bloque 08 |
+| `media.upload` | Subir archivos y editar su texto alternativo (D-052) | Bloque 08 |
+| `media.delete` | Eliminar archivos que no usen versiones en borrador, revisión, aprobadas ni publicadas (D-047) | Bloque 08 |
 
 ## Autorización
 

@@ -22,7 +22,7 @@ Implementado en el Bloque 07. Código en [`backend/modules/editorial/`](../backe
 - `changes_requested` y `archived` son finales: se continúa con una versión nueva (`POST /api/contents/:id/versions` con `basedOnVersionId`).
 - Una versión se revisa **una sola vez**, y la revisión queda ligada a ella (`publication_reviews`, solo inserción). Lo que se aprueba es exactamente lo que se publica: una versión enviada es inmutable.
 - Al publicar, la versión publicada anterior pasa a `archived` en la misma transacción. Conserva su autoría y queda en el historial.
-- Antes de enviar y de publicar se vuelve a validar el cuerpo con la lista blanca (D-033). Si un cuerpo guardado ya no la cumple, la respuesta es `409 body_invalid` con `bodyPath`.
+- Antes de enviar y de publicar se vuelve a validar el cuerpo con la lista blanca (D-033). Si un cuerpo guardado ya no la cumple, la respuesta es `409 body_invalid` con `bodyPath`. También se comprueba que sus archivos sigan activos y sean de la sección (`409 media_not_available` o `media_not_image`, con `bodyPath` y `mediaId`, Bloque 08), y al enviar o publicar un borrador se fijan sus referencias en `content_media`.
 - El `general_admin` sigue el mismo camino en las secciones `approval`: envía, aprueba y publica, sin atajos (D-041).
 
 ## Flujo del contenido
@@ -95,6 +95,7 @@ El comentario se guarda y se devuelve como texto plano (JSON). La interfaz deber
 | `content_in_review` | 409 | Archivar con una versión en revisión o aprobada |
 | `section_archived` | 409 | Sección archivada |
 | `content_not_editable` | 409 | Transición de versión en un contenido archivado |
+| `media_not_available`, `media_not_image` | 409 | Un archivo del cuerpo se eliminó, es de otra sección o no es una imagen (Bloque 08) |
 | `state_changed` | 409 | El estado cambió durante la operación; no se aplicó nada |
 
 ## Garantías de la base (migración 005)
@@ -125,5 +126,5 @@ Cada transición se audita en su transacción (entidad `content`, con la secció
 ## Fuera de alcance
 
 - Publicación programada y notificaciones: no están en la especificación.
-- Interfaz del panel: Bloques 08–09.
+- Interfaz del panel: hecha en el Bloque 08 (ver [MEDIA.md](MEDIA.md)).
 - Consulta y restauración de contenidos eliminados: sigue sin bloque asignado.

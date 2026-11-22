@@ -56,28 +56,31 @@ El backend valida el cuerpo en cada guardado con una lista blanca estricta y **r
 
 | Nodo | Atributos | Contenido |
 | --- | --- | --- |
-| `doc` | — | bloques: `paragraph`, `heading`, `bulletList`, `orderedList`, `blockquote`, `table` |
+| `doc` | — | bloques: `paragraph`, `heading`, `bulletList`, `orderedList`, `blockquote`, `table`, `image` |
 | `paragraph` | `textAlign` (`null`, `left`, `center`, `right`, `justify`) | `text`, `hardBreak` |
 | `heading` | `level` (2, 3 o 4; obligatorio), `textAlign` | `text`, `hardBreak` |
 | `bulletList` | — | `listItem` (≥ 1) |
 | `orderedList` | `start` (1–100 000), `type` (`null`, `1`, `a`, `A`, `i`, `I`) | `listItem` (≥ 1) |
 | `listItem` | — | `paragraph` primero; luego `paragraph` o listas |
-| `blockquote` | — | `paragraph`, `heading`, listas (≥ 1) |
+| `blockquote` | — | `paragraph`, `heading`, listas, `image` (≥ 1) |
 | `table` / `tableRow` | — | `tableRow` / `tableHeader`, `tableCell` (≥ 1) |
-| `tableHeader`, `tableCell` | `colspan` (1–20), `rowspan` (1–100), `colwidth` (`null` o lista de enteros) | `paragraph`, listas (≥ 1) |
+| `tableHeader`, `tableCell` | `colspan` (1–20), `rowspan` (1–100), `colwidth` (`null` o lista de enteros) | `paragraph`, listas, `image` (≥ 1) |
 | `hardBreak` | — | — |
+| `image` (Bloque 08) | `mediaId` (obligatorio, id de la biblioteca), `alt` (≤ 500, sin caracteres de control) | — |
 | `text` | `marks` | texto no vacío, sin caracteres de control (salvo tabulador y salto de línea) |
 
 | Marca | Atributos |
 | --- | --- |
 | `bold`, `italic`, `underline` | — |
-| `link` | `href` (obligatorio), `target` (`null` o `_blank`), `rel` (`null` o combinación de `noopener`, `noreferrer`, `nofollow`), `class` (solo `null`) |
+| `link` | `href` (obligatorio), `target` (`null` o `_blank`), `rel` (`null` o combinación de `noopener`, `noreferrer`, `nofollow`), `class` y `title` (solo `null`) |
 
-**Enlaces admitidos:** `http://` y `https://` con dominio y sin credenciales, `mailto:`, rutas del propio sitio que empiezan por `/` (no `//`) y anclas `#id`. Se rechazan `javascript:`, `data:`, `vbscript:`, `file:` y cualquier otro esquema, los destinos con espacios, controles, comillas o `\`, y los relativos sin `/`.
+**Enlaces admitidos:** `http://` y `https://` con dominio y sin credenciales, `mailto:`, rutas del propio sitio que empiezan por `/` (no `//`) y anclas `#id`. Bajo `/media` solo se admite `/media/<id>`, que referencia un archivo de la biblioteca (`media_href_invalid`). Se rechazan `javascript:`, `data:`, `vbscript:`, `file:` y cualquier otro esquema, los destinos con espacios, controles, comillas o `\`, y los relativos sin `/`.
 
 **Límites:** profundidad 16, 20 000 nodos, 20 000 caracteres por texto, 1 000 000 en total, 2 MiB serializado (UTF-8) y 2 MiB + 256 KiB por petición.
 
-El texto con marcado (por ejemplo `<script>`) se guarda como texto: el documento nunca contiene HTML, y el sitio público (Bloque 09) escapará todo al generar el HTML desde esta misma lista. Las imágenes se añadirán con la multimedia (Bloque 08).
+El texto con marcado (por ejemplo `<script>`) se guarda como texto: el documento nunca contiene HTML, y el HTML se genera desde esta misma lista con todo escapado (`render.js`, usado por la vista previa y por el sitio público del Bloque 09).
+
+**Archivos de la biblioteca (Bloque 08):** las imágenes y los enlaces `/media/<id>` deben ser archivos activos de la misma sección. Si no, la respuesta es `400` con `fields.body` igual a `media_not_available` o `media_not_image`, más `bodyPath` y `mediaId`. Se registran en `content_media` al guardar, y una versión nueva hereda las de su origen. La vista previa es `POST /api/contents/:id/preview`. Ver [MEDIA.md](MEDIA.md).
 
 ## Autorización
 
@@ -160,6 +163,5 @@ Cada escritura se audita en la misma transacción (entidad `content`):
 
 ## Pendiente en otros bloques
 
-- Editor Tiptap, imágenes y su relación con las versiones (`content_media`) (08).
 - Renderizado público, colisiones de slug entre contenidos y subsecciones de una misma sección y redirecciones al cambiar slugs (09, D-039).
 - Consulta y restauración de contenidos eliminados: sin bloque asignado todavía (se propondrá en el Bloque 10).

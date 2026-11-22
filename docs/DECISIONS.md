@@ -230,3 +230,62 @@ Formato: contexto → decisión → consecuencias. Las decisiones solo se revisa
 - **Decisión:** la migración 005 añade transiciones válidas, revisión obligatoria y única por versión, aprobación firmada por el revisor y `approval_required`. La regla de «sección archivada sin transiciones» queda solo en la aplicación.
 - **Motivo:** las garantías clave (nadie publica sin aprobación, aprobaciones ligadas a una versión) se cumplen aunque se escriba en la base por otra vía. Llevar a la base la de la sección archivada exigiría modificar una prueba aprobada del Bloque 06.
 - **Pruebas anteriores ajustadas:** el ayudante `publishVersion` (`tests/helpers/db.js`) recorre ahora enviar, revisar y aprobar en las secciones `approval`; se añade `reviewVersion`. En `contents.test.js`, la versión rechazada se crea con su revisión. En `schema.test.js` («los estados exigen sus marcas…»), publicar un borrador en una sección `approval` da `approval_required`, y el `CHECK` de la marca de publicación se comprueba en una sección `direct`. Las reglas que comprobaban siguen cumpliéndose.
+
+## D-045 · Alcance del panel en el Bloque 08
+
+- **Decisión:** el Bloque 08 construye el núcleo del panel: acceso, cambio de contraseña, secciones, contenidos con el editor, acciones editoriales, cola de revisión y biblioteca multimedia. Las pantallas de usuarios, permisos, secciones (alta y edición) y configuración pasan al Bloque 10, junto con la consulta de auditoría y las copias de seguridad, que también son pantallas de administración.
+- **Motivo:** el editor y la multimedia necesitan un panel donde usarse, pero ningún bloque del plan recogía las pantallas de administración general. Su API ya existe (Bloques 04–05).
+- **Aprobado** por el responsable del proyecto al aprobar el plan del Bloque 08 (2026-11-22).
+
+## D-046 · Tiptap como dependencia de desarrollo y bundle versionado (Bloque 08)
+
+- **Decisión:** `@tiptap/core`, `@tiptap/pm`, `@tiptap/starter-kit`, `@tiptap/extension-table`, `@tiptap/extension-blockquote` y `@tiptap/extension-list` (3.33.0), más `esbuild` (0.28.2), son `devDependencies` con versión exacta. `npm run build:editor` genera `frontend/admin/assets/editor.bundle.js`, que se versiona junto con las licencias de lo que contiene. Una prueba comprueba que el bundle coincide con las dependencias instaladas.
+- **Motivo:**
+  - la especificación exige Tiptap sin un framework frontend;
+  - Tiptap y ProseMirror son módulos npm que el navegador no puede cargar sin empaquetar;
+  - un CDN añadiría un tercero a la CSP y a la cadena de suministro;
+  - versionar el bundle evita compilar al desplegar, y el servidor sigue sin dependencias de ejecución.
+- **Versiones:** todas tenían más de dos semanas de antigüedad. Se instaló con `npm install --before=2026-11-08`, también para las dependencias transitivas con rango `^`. El `postinstall` de esbuild no se autorizó: no es necesario.
+
+## D-047 · Archivos en uso y borrado lógico (Bloque 08)
+
+- **Decisión:** eliminar un archivo es lógico. No se permite si lo usa una versión en borrador, en revisión, aprobada o publicada de un contenido no eliminado (`409 media_in_use`, también por trigger). El archivo físico se conserva. La purga física, el «procedimiento controlado» de la especificación, queda para el Bloque 10.
+- **Motivo:** la especificación prohíbe eliminar archivos que usen contenidos publicados. Extenderlo a borradores y revisiones evita que algo en curso pierda sus imágenes. Conservar el archivo físico mantiene consultable el historial de versiones archivadas.
+
+## D-048 · Tipos admitidos y subida en bruto (Bloque 08)
+
+- **Decisión:**
+  - PNG, JPEG, WebP y PDF; ni SVG ni GIF;
+  - 10 MiB por archivo, configurable con `MEDIA_MAX_BYTES` (de 1 KiB a 50 MiB);
+  - el archivo es el cuerpo de la petición, con su `Content-Type` y el nombre original en `X-File-Name` (URI-encoded), en lugar de `multipart/form-data`.
+- **Motivo:** SVG puede contener scripts. La subida en bruto evita escribir o añadir un analizador multipart, que es una superficie de ataque más.
+
+## D-049 · Eliminación de metadatos sin recodificar (Bloque 08)
+
+- **Decisión:** al subir, se eliminan EXIF (incluido el GPS), XMP, IPTC, comentarios, bloques de texto y los datos posteriores al final del formato. De EXIF solo se conserva la orientación. Se hace con código propio que reescribe la estructura del archivo, sin decodificar la imagen.
+- **Motivo:** las fotos de móvil revelan la ubicación y el dispositivo, y en un sitio institucional se publicarían. Recodificar exigiría una biblioteca nativa de imágenes. Quitar los datos finales neutraliza archivos políglotas, por ejemplo una imagen seguida de un ZIP o de código.
+
+## D-050 · Referencias a la biblioteca desde el cuerpo (Bloque 08)
+
+- **Decisión:**
+  - el nodo `image` guarda `mediaId` y `alt`, nunca una URL;
+  - un enlace a la biblioteca usa la ruta exacta `/media/<id>`, que será la pública del Bloque 09;
+  - ambos deben ser archivos activos de la misma sección, y se registran en `content_media` al guardar el borrador;
+  - se vuelven a comprobar al enviar y al publicar;
+  - la base garantiza la misma sección (`media_section_mismatch`) y que no se envíe ni publique nada con archivos eliminados (`media_not_available`).
+- **Motivo:** sin URL libre no se pueden incrustar imágenes externas, que permitirían rastreo o contenido mixto. Registrar las referencias es lo que impide eliminar un archivo en uso (D-047), también los PDF enlazados.
+
+## D-051 · PDF sin contenido activo (Bloque 08)
+
+- **Decisión:** se rechazan los PDF con JavaScript, acciones de lanzamiento, archivos incrustados, contenido multimedia, formularios XFA, envío o importación de datos. Se revisan también los flujos comprimidos, con un límite de descompresión, y se interpretan los escapes `#xx`.
+- **Motivo:** el sitio publicará estos documentos para descargarlos, y muchos lectores de PDF ejecutan contenido activo. Es una defensa de mejor esfuerzo. Además, el servidor los sirve siempre como descarga, con `nosniff` y una CSP `sandbox`.
+
+## D-052 · `media.upload` también edita el texto alternativo (Bloque 08)
+
+- **Decisión:** editar el texto alternativo de un archivo exige `media.upload`. La migración 006 actualiza la descripción del permiso (el código no cambia).
+- **Motivo:** el catálogo de permisos (D-022) no tiene uno para editar metadatos. Crear uno nuevo para un único campo complicaría la asignación sin aportar seguridad.
+
+## D-053 · Tiempo máximo de petición de 120 s (Bloque 08)
+
+- **Decisión:** `server.requestTimeout` pasa de 30 s a 120 s.
+- **Motivo:** subir 10 MiB en 30 s exige unos 2,8 Mbit/s de subida, más de lo que tienen muchas conexiones. La protección frente a clientes lentos se mantiene: las cabeceras deben llegar en 15 s, y cada ruta limita el tamaño del cuerpo (16 KiB en las JSON).

@@ -6,7 +6,8 @@
  *
  * Canal de cada petición:
  *   1. Cabeceras de seguridad (toda respuesta).
- *   2. Enrutado exacto por ruta y método (404 / 405).
+ *   2. Panel (`/admin/…`): archivos estáticos de una lista cerrada, con su CSP.
+ *      Resto: enrutado exacto por ruta y método (404 / 405).
  *   3. Métodos que modifican estado: el origen debe ser el propio sitio (CSRF, capa 1).
  *   4. Rutas autenticadas: sesión válida (401) y, si modifican estado,
  *      cabecera X-CSRF-Token ligada a la sesión (CSRF, capa 2).
@@ -15,12 +16,17 @@
  *   7. Manejador. Los errores se traducen a respuestas genéricas.
  */
 import http from 'node:http';
+import path from 'node:path';
+import { pipeline } from 'node:stream/promises';
+import { PROJECT_ROOT } from './config/index.js';
 import { HttpError, UNSAFE_METHODS, clientIp, isSameOriginRequest } from './middleware/http.js';
 import { createRouter } from './middleware/router.js';
 import { createAuditLog } from './modules/audit/audit.js';
 import { createAuth } from './modules/auth/index.js';
 import { createContentsModule } from './modules/contents/index.js';
 import { createEditorialModule } from './modules/editorial/index.js';
+import { createMediaModule } from './modules/media/index.js';
+import { createStaticSite } from './middleware/static.js';
 import { verifyCsrfToken } from './modules/auth/sessions.js';
 import { createPermissionsModule } from './modules/permissions/index.js';
 import { createSectionsModule } from './modules/sections/index.js';
@@ -28,8 +34,8 @@ import { createUsersModule } from './modules/users/index.js';
 
 /**
  * Cabeceras de seguridad base, aplicadas a TODA respuesta.
- * La CSP es la más restrictiva posible porque aún no se sirve HTML; se ampliará
- * de forma explícita cuando existan el sitio público y el panel (Bloques 08/09).
+ * La CSP es la más restrictiva posible: la API no sirve HTML. El panel tiene la
+ * suya (middleware/static.js) y los archivos multimedia también (sandbox).
  */
 export function baseSecurityHeaders({ isProduction }) {
   const headers = {
@@ -47,8 +53,21 @@ export function baseSecurityHeaders({ isProduction }) {
   return headers;
 }
 
-function send(req, res, { status, body, headers = {}, cookies = [] }) {
+function send(req, res, { status, body, headers = {}, cookies = [], stream }, logger) {
   if (cookies.length) res.setHeader('Set-Cookie', cookies);
+  if (stream) {
+    res.writeHead(status, headers);
+    if (req.method === 'HEAD') {
+      stream.destroy();
+      return res.end();
+    }
+    // Si el envío se interrumpe, se cierra la conexión (la longitud ya estaba anunciada).
+    pipeline(stream, res).catch((err) => {
+      if (err.code !== 'ERR_STREAM_PREMATURE_CLOSE') logger.error('Error al enviar un archivo', { err });
+      res.destroy();
+    });
+    return;
+  }
   if (body === undefined) {
     res.writeHead(status, headers);
     return res.end();
@@ -76,7 +95,10 @@ const errorResponse = (status, code, headers = {}, cookies = [], details = undef
  *           clock?: () => number,
  *           passwordHasher?: ReturnType<typeof import('./modules/auth/password.js').createPasswordHasher> }} deps
  */
-export function createServer({ config, logger, db, clock = Date.now, passwordHasher }) {
+/** Directorio del panel (servido bajo /admin). */
+export const ADMIN_ROOT = path.join(PROJECT_ROOT, 'frontend', 'admin');
+
+export function createServer({ config, logger, db, clock = Date.now, passwordHasher, adminRoot = ADMIN_ROOT }) {
   if (!db) throw new TypeError('createServer requiere una conexión a la base de datos');
   const securityHeaders = baseSecurityHeaders(config);
   const expectedOrigin = new URL(config.baseUrl).origin;
@@ -86,6 +108,8 @@ export function createServer({ config, logger, db, clock = Date.now, passwordHas
   const sectionsModule = createSectionsModule({ db });
   const contentsModule = createContentsModule({ db });
   const editorialModule = createEditorialModule({ db });
+  const mediaModule = createMediaModule({ db, config, logger });
+  const adminSite = createStaticSite({ root: adminRoot, prefix: '/admin' });
   const audit = createAuditLog(db);
 
   // Definición de ruta: { method, path, handler, auth?, role?, allowDuringPasswordChange? }
@@ -93,7 +117,8 @@ export function createServer({ config, logger, db, clock = Date.now, passwordHas
   const health = () => ({ status: 200, body: { status: 'ok' } });
   router.add({ method: 'GET', path: '/health', handler: health });
   router.add({ method: 'HEAD', path: '/health', handler: health });
-  for (const route of [...auth.routes, ...users.routes, ...permissionsModule.routes, ...sectionsModule.routes, ...contentsModule.routes, ...editorialModule.routes]) {
+  for (const route of [...auth.routes, ...users.routes, ...permissionsModule.routes, ...sectionsModule.routes, ...contentsModule.routes, ...editorialModule.routes,
+    ...mediaModule.routes]) {
     if (route.role && !route.auth) throw new Error(`La ruta ${route.path} exige rol pero no sesión`);
     router.add(route);
   }
@@ -106,6 +131,8 @@ export function createServer({ config, logger, db, clock = Date.now, passwordHas
     } catch {
       return errorResponse(400, 'bad_request');
     }
+
+    if (adminSite.owns(pathname)) return adminSite.serve(req, pathname);
 
     const matched = router.match(pathname);
     if (!matched) return errorResponse(404, 'not_found');
@@ -160,7 +187,7 @@ export function createServer({ config, logger, db, clock = Date.now, passwordHas
         if (res.headersSent) return;
         // Si quedó cuerpo sin leer (p. ej. rechazo antes de leerlo), se cierra la conexión.
         if (!req.complete) res.setHeader('Connection', 'close');
-        send(req, res, result);
+        send(req, res, result, logger);
       })
       .catch((err) => {
         logger.error('Error al enviar la respuesta', { err });
@@ -170,7 +197,9 @@ export function createServer({ config, logger, db, clock = Date.now, passwordHas
 
   // Límites defensivos frente a clientes lentos (slowloris) y conexiones colgadas.
   server.headersTimeout = 15_000;
-  server.requestTimeout = 30_000;
+  // 120 s: deja subir un archivo de MEDIA_MAX_BYTES con una conexión lenta (D-053).
+  // Las cabeceras siguen limitadas a 15 s y cada ruta limita el tamaño del cuerpo.
+  server.requestTimeout = 120_000;
   server.keepAliveTimeout = 5_000;
   server.maxHeadersCount = 100;
 

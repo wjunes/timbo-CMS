@@ -43,7 +43,11 @@ const DEFAULTS = Object.freeze({
   SESSION_TTL_HOURS: '8',
   SESSION_IDLE_MINUTES: '30',
   TRUST_PROXY: 'false',
+  MEDIA_MAX_BYTES: String(10 * 1024 * 1024),
 });
+
+/** Rango admitido de MEDIA_MAX_BYTES: de 1 KiB a 50 MiB (los archivos se procesan en memoria). */
+export const MEDIA_MAX_BYTES_RANGE = Object.freeze([1024, 50 * 1024 * 1024]);
 
 /** Devuelve el valor recortado o undefined si está vacío. */
 function read(env, key) {
@@ -134,7 +138,7 @@ function parseDatabasePath(value, isProduction, issues) {
 }
 
 function parseIntInRange(key, value, min, max, issues) {
-  if (!/^\d{1,6}$/.test(value) || Number(value) < min || Number(value) > max) {
+  if (!/^\d{1,9}$/.test(value) || Number(value) < min || Number(value) > max) {
     issues.push(`${key} debe ser un entero entre ${min} y ${max} (recibido: "${value}")`);
     return undefined;
   }
@@ -170,6 +174,7 @@ function parseEnum(key, value, allowed, issues) {
  *   storageDir: string,
  *   session: { ttlMs: number, idleMs: number },
  *   trustProxy: boolean,
+ *   media: { maxBytes: number },
  * }>}
  */
 export function loadConfig(env = process.env) {
@@ -206,8 +211,13 @@ export function loadConfig(env = process.env) {
   // Solo debe activarse detrás de un proxy inverso propio que sobrescriba X-Forwarded-For.
   const trustProxy = parseBoolean('TRUST_PROXY', read(env, 'TRUST_PROXY') ?? DEFAULTS.TRUST_PROXY, issues);
 
+  const mediaMaxBytes = parseIntInRange(
+    'MEDIA_MAX_BYTES', read(env, 'MEDIA_MAX_BYTES') ?? DEFAULTS.MEDIA_MAX_BYTES, ...MEDIA_MAX_BYTES_RANGE, issues,
+  );
+
   if (issues.length > 0) throw new ConfigError(issues);
 
   const session = Object.freeze({ ttlMs: ttlHours * 3_600_000, idleMs: idleMinutes * 60_000 });
-  return Object.freeze({ env: nodeEnv, isProduction, host, port, baseUrl, logLevel, databasePath, storageDir, session, trustProxy });
+  const media = Object.freeze({ maxBytes: mediaMaxBytes });
+  return Object.freeze({ env: nodeEnv, isProduction, host, port, baseUrl, logLevel, databasePath, storageDir, session, trustProxy, media });
 }

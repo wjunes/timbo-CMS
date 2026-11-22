@@ -11,15 +11,21 @@
  * - Autorización en el backend con el autorizador único (D-022). Quien no puede
  *   ver la sección recibe 404; quien la ve pero no tiene el permiso, 403 (auditado).
  * - Cada escritura y su auditoría se confirman en la misma transacción.
+ * - Multimedia (Bloque 08): las imágenes y los enlaces a la biblioteca del
+ *   cuerpo deben ser archivos activos de la misma sección; se registran en
+ *   content_media en la misma transacción que el borrador (D-050). La vista
+ *   previa genera el HTML seguro con el mismo renderizador del sitio público.
  */
 import { isTriggerAbort, isUniqueViolation } from '../../database/errors.js';
 import { withTransaction } from '../../database/transaction.js';
 import { HttpError, readJsonBody } from '../../middleware/http.js';
 import { rules, validate } from '../../utils/validation.js';
 import { createAuditLog } from '../audit/audit.js';
+import { createMediaReferences } from '../media/references.js';
 import { createAuthorizer } from '../permissions/authorizer.js';
 import { SLUG_PATTERN, slugify } from '../sections/slug.js';
 import { BODY_LIMITS, EMPTY_BODY, validateBody } from './body.js';
+import { renderBody } from './render.js';
 import { createContentRepository } from './repository.js';
 
 export const CONTENT_SLUG_MAX_LENGTH = 150;
@@ -28,10 +34,10 @@ const BODY_REQUEST_LIMIT = BODY_LIMITS.maxBytes + 256 * 1024;
 const EMPTY_BODY_JSON = JSON.stringify(EMPTY_BODY);
 const MAX_SLUG_SUFFIX = 50;
 
-/** Códigos de trigger (migraciones 001/004) que se devuelven tal cual como 409. */
+/** Códigos de trigger (migraciones 001/004/006) que se devuelven tal cual como 409. */
 const TRIGGER_CONFLICTS = Object.freeze([
   'section_archived', 'content_not_editable', 'content_section_immutable', 'content_version_immutable',
-  'version_must_start_as_draft',
+  'version_must_start_as_draft', 'media_section_mismatch',
 ]);
 
 function translateDbError(err, uniqueCode) {
@@ -59,13 +65,17 @@ function splitBody(raw) {
   return { hasBody, body, rest };
 }
 
-function bodyJson(value) {
+/** @returns {{ json: string, media: { mediaId: number, path: string }[] }} */
+function checkedBody(value) {
   const result = validateBody(value);
   if (!result.ok) {
     throw new HttpError(400, 'validation_failed', {}, { fields: { body: result.code }, bodyPath: result.path });
   }
-  return result.json;
+  return result;
 }
+
+/** URL con la que el panel muestra un archivo de la biblioteca. */
+export const panelMediaUrl = (id) => `/api/media/${id}/file`;
 
 const titleRule = (o = {}) => rules.string({ min: 1, max: 300, ...o });
 const summaryRule = () => rules.string({ max: 2000, optional: true });
@@ -126,6 +136,7 @@ export function createContentsModule({ db }) {
   const contents = createContentRepository(db);
   const authorizer = createAuthorizer(db);
   const audit = createAuditLog(db);
+  const mediaRefs = createMediaReferences(db);
   const sectionById = db.prepare('SELECT id, status FROM sections WHERE id = ?');
 
   const user = (ctx) => ctx.auth.session.user;
@@ -208,15 +219,17 @@ export function createContentsModule({ db }) {
     assertWritable(section);
     const { hasBody, body, rest } = splitBody(await readJsonBody(ctx.req, { limit: BODY_REQUEST_LIMIT }));
     const input = validate(rest, { title: titleRule(), summary: summaryRule(), slug: slugRule() });
-    const json = hasBody ? bodyJson(body) : EMPTY_BODY_JSON;
+    const checked = hasBody ? checkedBody(body) : { json: EMPTY_BODY_JSON, media: [] };
 
     const { contentId, versionId } = inTransaction(db, 'slug_taken', () => {
+      mediaRefs.assertSavable(section.id, checked.media);
       let slug = input.slug;
       if (slug === undefined) slug = generateSlug(section.id, input.title);
       else if (contents.isSlugTaken(section.id, slug)) throw new HttpError(409, 'slug_taken');
       const ids = contents.create({
-        sectionId: section.id, slug, title: input.title, summary: input.summary ?? '', body: json, userId: actor(ctx),
+        sectionId: section.id, slug, title: input.title, summary: input.summary ?? '', body: checked.json, userId: actor(ctx),
       });
+      mediaRefs.sync(ids.versionId, checked.media);
       audit.record({
         action: 'content.create', outcome: 'success', actorUserId: actor(ctx), entityType: 'content', entityId: ids.contentId,
         sectionId: section.id, ip: ctx.ip, details: { slug, versionId: ids.versionId, versionNumber: 1 },
@@ -304,6 +317,7 @@ export function createContentsModule({ db }) {
 
     const created = inTransaction(db, 'open_version_exists', () => {
       const v = contents.createVersionFrom({ contentId: row.id, sourceId, userId: actor(ctx) });
+      mediaRefs.copy(sourceId, v.id);
       contents.touch(row.id);
       audit.record({
         action: 'version.create', outcome: 'success', actorUserId: actor(ctx), entityType: 'content', entityId: row.id,
@@ -328,7 +342,8 @@ export function createContentsModule({ db }) {
     const input = validate(rest, { revision: rules.integer({ min: 1 }), title: titleRule({ optional: true }), summary: summaryRule() });
     if (!hasBody && input.title === undefined && input.summary === undefined) throw fieldError('_', 'empty_update');
 
-    const proposed = { title: input.title, summary: input.summary, body: hasBody ? bodyJson(body) : undefined };
+    const checked = hasBody ? checkedBody(body) : null;
+    const proposed = { title: input.title, summary: input.summary, body: checked?.json };
     const changes = {};
     for (const [key, value] of Object.entries(proposed)) if (value !== undefined && value !== version[key]) changes[key] = value;
 
@@ -343,7 +358,9 @@ export function createContentsModule({ db }) {
       if (input.revision !== version.revision) throw conflict();
     } else {
       inTransaction(db, 'revision_conflict', () => {
+        if ('body' in changes) mediaRefs.assertSavable(section.id, checked.media);
         if (!contents.saveDraft(version.id, input.revision, changes, actor(ctx))) throw conflict();
+        if ('body' in changes) mediaRefs.sync(version.id, checked.media);
         contents.touch(row.id);
         audit.record({
           action: 'version.update', outcome: 'success', actorUserId: actor(ctx), entityType: 'content', entityId: row.id,
@@ -374,6 +391,21 @@ export function createContentsModule({ db }) {
     return { status: 204 };
   }
 
+  /**
+   * Vista previa del cuerpo que se está editando (no se guarda nada). Mismo
+   * HTML que el sitio público, con las URL del panel para los archivos.
+   */
+  async function preview(ctx) {
+    const { section } = loadContent(ctx);
+    const { hasBody, body, rest } = splitBody(await readJsonBody(ctx.req, { limit: BODY_REQUEST_LIMIT }));
+    validate(rest, {});
+    if (!hasBody) throw fieldError('body', 'required');
+    const checked = checkedBody(body);
+    mediaRefs.assertSavable(section.id, checked.media);
+    const html = renderBody(body, { mediaSrc: panelMediaUrl, mediaHref: panelMediaUrl, media: mediaRefs.dimensions(checked.media) });
+    return { status: 200, body: { html } };
+  }
+
   const session = { auth: true };
   return Object.freeze({
     routes: [
@@ -387,6 +419,7 @@ export function createContentsModule({ db }) {
       { method: 'GET', path: '/api/contents/:id/versions/:versionId', handler: getVersion, ...session },
       { method: 'PATCH', path: '/api/contents/:id/versions/:versionId', handler: saveVersion, ...session },
       { method: 'DELETE', path: '/api/contents/:id/versions/:versionId', handler: discardVersion, ...session },
+      { method: 'POST', path: '/api/contents/:id/preview', handler: preview, ...session },
     ],
   });
 }

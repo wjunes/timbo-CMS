@@ -11,9 +11,9 @@ Estados: `PENDING` · `IN_PROGRESS` · `VALIDATION` · `APPROVED` · `BLOCKED`
 | 05 | Administración de secciones | `APPROVED` |
 | 06 | Motor de contenidos y versionado | `APPROVED` |
 | 07 | Flujos editoriales y aprobaciones | `APPROVED` |
-| 08 | Editor enriquecido y multimedia | `PENDING` |
+| 08 | Editor enriquecido y multimedia | `APPROVED` |
 | 09 | Sitio público y presentación adaptable | `PENDING` |
-| 10 | Auditoría, copias de seguridad y restauración | `PENDING` |
+| 10 | Auditoría, copias de seguridad y restauración (y pantallas de administración general, D-045) | `PENDING` |
 | 11 | Pruebas integrales, seguridad y despliegue | `PENDING` |
 
 Cada bloque requiere aprobación explícita antes de comenzar el siguiente.
@@ -148,5 +148,40 @@ Cada bloque requiere aprobación explícita antes de comenzar el siguiente.
 - [x] Solo transiciones válidas; las versiones enviadas son inmutables; el cuerpo se revalida antes de enviar y publicar.
 - [x] Autorización en el backend por sección y permiso; sin acceso entre secciones; denegaciones auditadas.
 - [x] Todas las pruebas pasan (incluidas las de los Bloques 01–06) y se comprobó el flujo de extremo a extremo con el servidor real.
+- [x] Documentación actualizada.
+- [x] Revisión y aprobación del responsable del proyecto (2026-11-22).
+
+## Bloque 08 — Detalle
+
+**Alcance:**
+
+- migración 006: archivos inmutables, eliminación bloqueada si están en uso, referencias solo de la propia sección, nada se envía ni se publica con archivos eliminados;
+- módulo `media`:
+  - subida en bruto con verificación del contenido real y eliminación de metadatos;
+  - biblioteca por sección, texto alternativo, borrado lógico;
+  - envío al panel en un sandbox;
+- imágenes (`mediaId`) y enlaces `/media/<id>` en el cuerpo, registrados en `content_media`;
+- renderizado seguro y vista previa;
+- editor Tiptap empaquetado localmente;
+- núcleo del panel en `/admin/` con CSP estricta;
+- pruebas y documentación ([MEDIA.md](MEDIA.md)).
+
+**Fuera de alcance:**
+
+- servir los archivos al público (Bloque 09);
+- purga física de archivos, huérfanos y temporales (Bloque 10);
+- pantallas de usuarios, permisos, secciones y configuración (Bloque 10, D-045).
+
+**Criterios de aceptación:**
+
+- [x] Editor con negrita, cursiva, subrayado, encabezados, listas, enlaces, imágenes, tablas, citas, alineación, deshacer y rehacer, y vista previa; Tiptap sin framework frontend.
+- [x] Contenido estructurado (JSON) que el backend valida con la lista blanca y escapa al renderizar; el esquema del editor coincide con la lista blanca.
+- [x] Archivos en disco (nunca BLOB), con nombre aleatorio; validación de la extensión, el MIME y el contenido real; límite de tamaño y de dimensiones.
+- [x] Sin ejecución: MIME de la base, `nosniff`, CSP `sandbox`, PDF como descarga y sin contenido activo; `storage/` no se sirve.
+- [x] Control de acceso por sección y permiso (`media.upload`, `media.delete`); sin acceso entre secciones; denegaciones auditadas.
+- [x] No se eliminan archivos en uso por contenidos publicados (ni en borrador, revisión o aprobados); la base lo garantiza también.
+- [x] Metadatos de las fotos eliminados (EXIF/GPS, XMP, comentarios), conservando la orientación.
+- [x] Panel con CSP sin nada en línea; token CSRF solo en memoria; nada en `localStorage`.
+- [x] Todas las pruebas pasan (incluidas las de los Bloques 01–07). Se comprobó el flujo de extremo a extremo con el servidor real y el panel en un navegador real.
 - [x] Documentación actualizada.
 - [x] Revisión y aprobación del responsable del proyecto (2026-11-22).

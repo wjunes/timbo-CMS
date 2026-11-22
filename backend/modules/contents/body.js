@@ -12,7 +12,10 @@
  * - Límites de profundidad, número de nodos, longitud de textos y tamaño total.
  * - Las búsquedas usan Map/Set y `Object.hasOwn`, nunca el prototipo: claves
  *   como `__proto__` o `constructor` son simplemente desconocidas.
- * - Las imágenes se incorporan con la multimedia (Bloque 08).
+ * - Imágenes (Bloque 08): nodo `image` con `mediaId` y `alt`, sin URL libre. Los
+ *   enlaces a documentos de la biblioteca usan la ruta `/media/<id>`. Ambos son
+ *   referencias que se devuelven en `media` para comprobarlas y registrarlas
+ *   en content_media (backend/modules/media/references.js).
  */
 
 export const BODY_LIMITS = Object.freeze({
@@ -22,7 +25,12 @@ export const BODY_LIMITS = Object.freeze({
   maxTextLength: 20_000, // por nodo de texto
   maxTotalText: 1_000_000,
   maxHrefLength: 2048,
+  maxAltLength: 500, // igual que el CHECK de media.alt_text
 });
+
+/** Ruta de un archivo de la biblioteca enlazado desde el cuerpo (servida en el Bloque 09). */
+export const MEDIA_HREF = /^\/media\/([1-9][0-9]{0,15})$/;
+const MEDIA_ID_MAX = 10 ** 16 - 1;
 
 export const EMPTY_BODY = Object.freeze({ type: 'doc', content: Object.freeze([]) });
 
@@ -39,6 +47,9 @@ const colwidth = (v) =>
     ? null
     : 'invalid_attribute_value';
 const onlyNull = (v) => (v === null ? null : 'invalid_attribute_value');
+const CONTROL = /[\u0000-\u001f\u007f]/;
+const altText = (v) =>
+  typeof v === 'string' && v.length <= BODY_LIMITS.maxAltLength && v.isWellFormed() && !CONTROL.test(v) ? null : 'invalid_attribute_value';
 const linkTarget = oneOf([null, '_blank']);
 function linkRel(v) {
   if (v === null) return null;
@@ -56,7 +67,12 @@ export function checkHref(href) {
   if (href.length === 0 || href.length > BODY_LIMITS.maxHrefLength || !href.isWellFormed()) return 'link_href_invalid';
   if (URL_FORBIDDEN.test(href)) return 'link_href_invalid';
   // Rutas del propio sitio ("/a/b", sin "//" que sería otro dominio) y anclas.
-  if (href.startsWith('/')) return href.startsWith('//') ? 'link_href_not_allowed' : null;
+  // Bajo /media/ solo se admite la forma exacta /media/<id> (referencia a la biblioteca).
+  if (href.startsWith('/')) {
+    if (href.startsWith('//')) return 'link_href_not_allowed';
+    if ((href === '/media' || href.startsWith('/media/')) && !MEDIA_HREF.test(href)) return 'media_href_invalid';
+    return null;
+  }
   if (href.startsWith('#')) return /^#[A-Za-z0-9_-]{1,200}$/.test(href) ? null : 'link_href_invalid';
   let url;
   try {
@@ -76,28 +92,29 @@ export function checkHref(href) {
  */
 const INLINE = ['text', 'hardBreak'];
 const LIST = ['bulletList', 'orderedList'];
-const CELL_BLOCKS = ['paragraph', ...LIST];
+const CELL_BLOCKS = ['paragraph', ...LIST, 'image'];
 
 const NODES = new Map(Object.entries({
-  doc: { content: ['paragraph', 'heading', ...LIST, 'blockquote', 'table'], attrs: {} },
+  doc: { content: ['paragraph', 'heading', ...LIST, 'blockquote', 'table', 'image'], attrs: {} },
   paragraph: { content: INLINE, attrs: { textAlign: oneOf(TEXT_ALIGN) } },
   heading: { content: INLINE, attrs: { level: oneOf([2, 3, 4]), textAlign: oneOf(TEXT_ALIGN) }, requiredAttrs: ['level'] },
   bulletList: { content: ['listItem'], minContent: 1, attrs: {} },
   orderedList: { content: ['listItem'], minContent: 1, attrs: { start: int(1, 100_000), type: oneOf(ORDERED_LIST_TYPES) } },
   listItem: { content: ['paragraph', ...LIST], minContent: 1, first: 'paragraph', attrs: {} },
-  blockquote: { content: ['paragraph', 'heading', ...LIST], minContent: 1, attrs: {} },
+  blockquote: { content: ['paragraph', 'heading', ...LIST, 'image'], minContent: 1, attrs: {} },
   table: { content: ['tableRow'], minContent: 1, attrs: {} },
   tableRow: { content: ['tableHeader', 'tableCell'], minContent: 1, attrs: {} },
   tableHeader: { content: CELL_BLOCKS, minContent: 1, attrs: { colspan: int(1, 20), rowspan: int(1, 100), colwidth } },
   tableCell: { content: CELL_BLOCKS, minContent: 1, attrs: { colspan: int(1, 20), rowspan: int(1, 100), colwidth } },
   hardBreak: { leaf: true, attrs: {} },
+  image: { leaf: true, attrs: { mediaId: int(1, MEDIA_ID_MAX), alt: altText }, requiredAttrs: ['mediaId'] },
 }));
 
 const MARKS = new Map(Object.entries({
   bold: { attrs: {} },
   italic: { attrs: {} },
   underline: { attrs: {} },
-  link: { attrs: { href: checkHref, target: linkTarget, rel: linkRel, class: onlyNull }, requiredAttrs: ['href'] },
+  link: { attrs: { href: checkHref, target: linkTarget, rel: linkRel, class: onlyNull, title: onlyNull }, requiredAttrs: ['href'] },
 }));
 
 const isPlainObject = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
@@ -145,6 +162,8 @@ const MARK_KEYS = new Set(['type', 'attrs']);
  */
 function validateDocument(doc) {
   const stats = { nodes: 0, textLength: 0 };
+  /** @type {{ mediaId: number, path: string }[]} referencias a la biblioteca, en orden de aparición */
+  const media = [];
 
   function visit(node, allowedTypes, path, depth) {
     if (depth > BODY_LIMITS.maxDepth) throw new BodyError('too_deep', pointer(path));
@@ -164,7 +183,13 @@ function validateDocument(doc) {
       if (!text.isWellFormed() || CONTROL_CHARS.test(text)) throw new BodyError('invalid_characters', pointer([...path, 'text']));
       stats.textLength += text.length;
       if (stats.textLength > BODY_LIMITS.maxTotalText) throw new BodyError('text_too_long', pointer([...path, 'text']));
-      if (node.marks !== undefined) checkMarks(node.marks, [...path, 'marks']);
+      if (node.marks !== undefined) {
+        checkMarks(node.marks, [...path, 'marks']);
+        node.marks.forEach((mark, i) => {
+          const match = mark.type === 'link' ? MEDIA_HREF.exec(mark.attrs.href) : null;
+          if (match) media.push({ mediaId: Number(match[1]), path: pointer([...path, 'marks', i, 'attrs', 'href']) });
+        });
+      }
       return;
     }
 
@@ -174,6 +199,7 @@ function validateDocument(doc) {
 
     if (spec.leaf) {
       if (node.content !== undefined) throw new BodyError('unknown_property', pointer([...path, 'content']));
+      if (type === 'image') media.push({ mediaId: node.attrs.mediaId, path: pointer([...path, 'attrs', 'mediaId']) });
       return;
     }
     const content = node.content ?? [];
@@ -204,21 +230,23 @@ function validateDocument(doc) {
   }
 
   visit(doc, ['doc'], [], 0);
-  return stats;
+  return { ...stats, media };
 }
 
 /**
- * Valida el cuerpo recibido por la API y devuelve su serialización para guardarla.
- * @returns {{ ok: true, json: string } | { ok: false, code: string, path: string }}
+ * Valida el cuerpo recibido por la API y devuelve su serialización para guardarla
+ * y las referencias a la biblioteca multimedia (`media`, puede repetir archivos).
+ * @returns {{ ok: true, json: string, media: { mediaId: number, path: string }[] } | { ok: false, code: string, path: string }}
  */
 export function validateBody(value) {
+  let media;
   try {
-    validateDocument(value);
+    ({ media } = validateDocument(value));
   } catch (err) {
     if (err instanceof BodyError) return { ok: false, code: err.code, path: err.path };
     throw err;
   }
   const json = JSON.stringify(value);
   if (Buffer.byteLength(json, 'utf8') > BODY_LIMITS.maxBytes) return { ok: false, code: 'too_large', path: '' };
-  return { ok: true, json };
+  return { ok: true, json, media };
 }

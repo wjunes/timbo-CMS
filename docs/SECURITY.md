@@ -2,7 +2,7 @@
 
 La seguridad forma parte del diseño desde el Bloque 01. Este documento distingue entre lo **implementado y verificado** y lo **planificado**.
 
-## Implementado (Bloques 01–07)
+## Implementado (Bloques 01–08)
 
 | Medida | Dónde | Verificación |
 | --- | --- | --- |
@@ -63,16 +63,24 @@ La seguridad forma parte del diseño desde el Bloque 01. Este documento distingu
 | Solo transiciones válidas entre estados; estado releído y condicionado en la transacción | migración 005, `modules/editorial/repository.js` | `tests/integration/schema.test.js`, `editorial.test.js` |
 | El cuerpo se vuelve a validar antes de enviar y de publicar | `modules/editorial` | `tests/integration/editorial.test.js` |
 | Sin asignación masiva de estado, decisión, revisor ni autoría en las transiciones | idem | `tests/security/editorial.security.test.js` |
+| Subidas: permiso `media.upload` por sección, solo PNG/JPEG/WebP/PDF (sin SVG), extensión acorde al tipo, contenido real verificado recorriendo la estructura del formato, límites de tamaño (`MEDIA_MAX_BYTES`) y de píxeles | `modules/media` | `tests/unit/media-inspect.test.js`, `tests/security/media.security.test.js` |
+| Archivos con clave aleatoria de 128 bits, fuera de lo público, escritura atómica; el nombre original es solo un dato (rutas y controles rechazados) | `modules/media/storage.js`, `index.js` | `tests/integration/media.test.js`, `tests/unit/media-names.test.js` |
+| Metadatos eliminados (EXIF/GPS, XMP, IPTC, comentarios) y datos tras el final del formato (políglotas) | `modules/media/inspect.js` | `tests/unit/media-inspect.test.js` |
+| PDF sin contenido activo (JavaScript, Launch, incrustados, XFA…), también en flujos comprimidos, con límite de descompresión | idem | idem |
+| Sin ejecución al servir: MIME de la base, `nosniff`, CSP `sandbox`, PDF como descarga, `no-store`; `storage/` no tiene ruta | `modules/media/index.js` | `tests/integration/media.test.js`, `tests/security/media.security.test.js` |
+| No se eliminan archivos en uso (borrador, revisión, aprobado, publicado); referencias solo de la propia sección; nada se envía ni publica con archivos eliminados | `modules/media`, migración 006 | `tests/integration/media.test.js`, `schema.test.js` |
+| Imágenes del cuerpo solo de la biblioteca (`mediaId`, sin URL libre) | `modules/contents/body.js` | `tests/unit/contents-body.test.js` |
+| Renderizado con tabla cerrada de nodos, escapado contextual, sin `style` ni manejadores, `rel=noopener` con `_blank` | `modules/contents/render.js` | `tests/unit/contents-render.test.js` |
+| Panel: CSP sin nada en línea, sin marcos ni objetos; archivos de una lista cerrada (sin path traversal ni ocultos); token CSRF solo en memoria, nada en `localStorage`; datos insertados como texto | `middleware/static.js`, `frontend/admin/` | `tests/security/media.security.test.js`, `tests/unit/static.test.js`; navegador real sin violaciones de CSP |
+| Dependencias del editor fijadas, con más de dos semanas de antigüedad, solo de desarrollo; bundle local (sin CDN) verificado contra ellas | `package.json`, `scripts/build-editor.js` | `tests/unit/editor-schema.test.js` |
 
 ## Planificado
 
 | Medida | Bloque |
 | --- | --- |
 | Consultas SQL parametrizadas en todos los repositorios (restricciones e integridad referencial: hechas en el Bloque 02) | 03+ |
-| Aplicación del autorizador en la multimedia | 08 |
-| Imágenes en el cuerpo (Tiptap) y escapado al renderizar | 08–09 |
-| Validación real de archivos (firma, MIME, extensión, tamaño), nombres aleatorios, sin ejecución | 08 |
-| CSP específica para sitio público y panel | 08–09 |
+| Servir al público solo los archivos de contenidos publicados; CSP del sitio público | 09 |
+| Purga controlada de archivos eliminados, huérfanos y temporales | 10 |
 | Registro de operaciones críticas en la auditoría (tabla de solo inserción: hecha en el Bloque 02); verificación de integridad (cadena de hashes) | 04+ / 10 |
 | Backups consistentes (`node:sqlite` `backup()`), manifiesto, verificación de integridad | 10 |
 | HTTPS en producción (terminación TLS / proxy inverso), revisión final | 11 |

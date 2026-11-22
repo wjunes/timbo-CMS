@@ -1,7 +1,11 @@
 /**
  * Arranque de la aplicación completa para pruebas HTTP (BD en memoria migrada,
- * Argon2id con parámetros reducidos, reloj controlable, logger capturado).
+ * Argon2id con parámetros reducidos, reloj controlable, logger capturado y un
+ * STORAGE_DIR temporal propio que se borra al parar).
  */
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import { createServer } from '../../backend/app.js';
 import { loadConfig } from '../../backend/config/index.js';
 import { createPasswordHasher } from '../../backend/modules/auth/password.js';
@@ -17,7 +21,8 @@ let seq = 0;
  * @param {{ env?: Record<string,string>, hasher?: any }} [options]
  */
 export async function startApp({ env = {}, hasher = createPasswordHasher({ params: FAST_PARAMS }) } = {}) {
-  const config = loadConfig({ NODE_ENV: 'test', PORT: '3000', ...env });
+  const storageDir = env.STORAGE_DIR ?? fs.mkdtempSync(path.join(os.tmpdir(), 'cms-test-storage-'));
+  const config = loadConfig({ NODE_ENV: 'test', PORT: '3000', ...env, STORAGE_DIR: storageDir });
   const db = migratedMemoryDb();
   const logs = [];
   const logger = createLogger({ level: 'debug', write: (_stream, line) => logs.push(line) });
@@ -45,7 +50,7 @@ export async function startApp({ env = {}, hasher = createPasswordHasher({ param
     if (cookie) h.cookie = cookie;
     if (body !== undefined) {
       h['content-type'] ??= 'application/json';
-      body = typeof body === 'string' ? body : JSON.stringify(body);
+      body = typeof body === 'string' || body instanceof Uint8Array ? body : JSON.stringify(body); // Uint8Array: subida en bruto
     }
     return fetch(`${base}${path}`, { method, headers: h, body, redirect: 'manual' });
   }
@@ -84,6 +89,7 @@ export async function startApp({ env = {}, hasher = createPasswordHasher({ param
       server.closeAllConnections();
     });
     closeDatabase(db);
+    if (!env.STORAGE_DIR) fs.rmSync(storageDir, { recursive: true, force: true });
   }
 
   return { config, db, server, base, origin, logs, clock, request, login, createUser, as, loginAsAdmin, stop };

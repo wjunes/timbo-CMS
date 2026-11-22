@@ -326,12 +326,14 @@ describe('esquema: revisiones de publicación', () => {
 });
 
 describe('esquema: multimedia', () => {
-  const insertMedia = (storageKey = 'a1b2c3d4e5f6a7b8c9d0.png') =>
+  // En la sección 2, la de insertContent: desde la migración 006 una versión solo referencia archivos de su sección.
+  const insertMedia = (storageKey = 'a1b2c3d4e5f6a7b8c9d0.png', sectionId = 2) =>
     Number(
       run(
-        "INSERT INTO media (storage_key, original_name, mime_type, extension, size_bytes, sha256, visibility, uploaded_by) VALUES (?, 'foto.png', 'image/png', 'png', 1024, ?, 'public', ?)",
+        "INSERT INTO media (storage_key, original_name, mime_type, extension, size_bytes, sha256, visibility, section_id, uploaded_by) VALUES (?, 'foto.png', 'image/png', 'png', 1024, ?, 'public', ?, ?)",
         storageKey,
         'a'.repeat(64),
+        sectionId,
         editor,
       ).lastInsertRowid,
     );
@@ -644,5 +646,83 @@ describe('esquema 005: flujo editorial', () => {
 
   it('actualiza la descripción de content.publish (D-040)', () => {
     assert.match(get("SELECT description FROM permissions WHERE code = 'content.publish'").description, /aprobadas/);
+  });
+});
+
+describe('esquema 006: multimedia', () => {
+  const NOW = "strftime('%Y-%m-%dT%H:%M:%fZ','now')";
+  let seq = 0;
+  const media = (sectionId = 2) =>
+    Number(run(
+      "INSERT INTO media (storage_key, original_name, mime_type, extension, size_bytes, sha256, visibility, section_id, uploaded_by) VALUES (?, 'a.png', 'image/png', 'png', 10, ?, 'public', ?, ?)",
+      `${String(++seq).padStart(4, '0')}${'a'.repeat(28)}`, 'b'.repeat(64), sectionId, editor,
+    ).lastInsertRowid);
+  const link = (versionId, mediaId) => run('INSERT INTO content_media (content_version_id, media_id) VALUES (?, ?)', versionId, mediaId);
+  const softDelete = (id) => run(`UPDATE media SET status = 'deleted', deleted_by = ?, deleted_at = ${NOW} WHERE id = ?`, admin, id);
+
+  it('los datos del archivo son inmutables; el texto alternativo no', () => {
+    const id = media();
+    for (const [col, value] of [['storage_key', 'f'.repeat(32)], ['sha256', 'c'.repeat(64)], ['size_bytes', 11], ['mime_type', 'image/jpeg'], ['section_id', 3], ['uploaded_by', admin], ['original_name', 'b.png']]) {
+      expectSqliteError(assert, () => run(`UPDATE media SET ${col} = ? WHERE id = ?`, value, id), 'media_immutable');
+    }
+    run("UPDATE media SET alt_text = 'Fachada' WHERE id = ?", id);
+    assert.equal(get('SELECT alt_text FROM media WHERE id = ?', id).alt_text, 'Fachada');
+  });
+
+  it('un archivo eliminado no se reactiva ni se edita', () => {
+    const id = media();
+    softDelete(id);
+    expectSqliteError(assert, () => run("UPDATE media SET status = 'active', deleted_by = NULL, deleted_at = NULL WHERE id = ?", id), 'media_deleted');
+    expectSqliteError(assert, () => run("UPDATE media SET alt_text = 'x' WHERE id = ?", id), 'media_deleted');
+  });
+
+  it('no se elimina un archivo usado por una versión en borrador, revisión, aprobada o publicada', () => {
+    const id = media();
+    const { contentId, versionId } = insertContent(db, { userId: editor });
+    link(versionId, id);
+    expectSqliteError(assert, () => softDelete(id), 'media_in_use');
+    submitVersion(db, { versionId, userId: editor });
+    expectSqliteError(assert, () => softDelete(id), 'media_in_use');
+    reviewVersion(db, { versionId, reviewerId: admin });
+    expectSqliteError(assert, () => softDelete(id), 'media_in_use');
+    publishVersion(db, { contentId, versionId, userId: admin });
+    expectSqliteError(assert, () => softDelete(id), 'media_in_use');
+    // Despublicada (archivada), ya no lo impide.
+    run("UPDATE contents SET status = 'draft', published_version_id = NULL WHERE id = ?", contentId);
+    run("UPDATE content_versions SET status = 'archived' WHERE id = ?", versionId);
+    softDelete(id);
+  });
+
+  it('las versiones de contenidos eliminados no impiden eliminar el archivo', () => {
+    const id = media();
+    const { contentId, versionId } = insertContent(db, { userId: editor });
+    link(versionId, id);
+    run(`UPDATE contents SET status = 'deleted', deleted_by = ?, deleted_at = ${NOW} WHERE id = ?`, admin, contentId);
+    softDelete(id);
+  });
+
+  it('una versión solo referencia archivos de su sección', () => {
+    const { versionId } = insertContent(db, { userId: editor }); // sección 2
+    expectSqliteError(assert, () => link(versionId, media(3)), 'media_section_mismatch');
+    expectSqliteError(assert, () => link(versionId, media(null)), 'media_section_mismatch');
+    link(versionId, media(2));
+  });
+
+  it('no se envía ni se publica una versión con un archivo eliminado', () => {
+    const id = media();
+    const { versionId } = insertContent(db, { userId: editor });
+    link(versionId, id);
+    // Solo es posible si el archivo se eliminó cuando no lo usaba nadie y la referencia llegó después (copiada de otra versión).
+    run('DELETE FROM content_media WHERE content_version_id = ?', versionId);
+    softDelete(id);
+    link(versionId, id);
+    expectSqliteError(assert, () => submitVersion(db, { versionId, userId: editor }), 'media_not_available');
+  });
+
+  it('no se suben archivos a una sección archivada', () => {
+    const section = Number(run("INSERT INTO sections (section_type_id, slug, name, presentation) VALUES (1, 'archivada-006', 'A', 'page')").lastInsertRowid);
+    media(section);
+    run("UPDATE sections SET status = 'archived' WHERE id = ?", section);
+    expectSqliteError(assert, () => media(section), 'section_archived');
   });
 });

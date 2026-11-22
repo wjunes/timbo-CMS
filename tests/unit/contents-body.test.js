@@ -60,7 +60,8 @@ describe('cuerpo Tiptap: estructura', () => {
 
   it('rechaza nodos desconocidos (también los de Tiptap no admitidos) indicando la ruta', () => {
     rejects(doc(p(t('a')), { type: 'iframe', attrs: { src: 'https://x' } }), 'unknown_node', '/content/1/type');
-    rejects(doc({ type: 'image', attrs: { src: 'https://x/y.png' } }), 'unknown_node', '/content/0/type');
+    // Desde el Bloque 08 existe el nodo image, pero solo con mediaId: una URL libre no se admite.
+    rejects(doc({ type: 'image', attrs: { src: 'https://x/y.png' } }), 'unknown_attribute', '/content/0/attrs/src');
     rejects(doc({ type: 'codeBlock', content: [t('x')] }), 'unknown_node');
     rejects(doc({ type: 'html', content: [] }), 'unknown_node');
   });
@@ -180,5 +181,52 @@ describe('cuerpo Tiptap: límites', () => {
     const chunk = '€'.repeat(BODY_LIMITS.maxTextLength);
     const count = BODY_LIMITS.maxTotalText / BODY_LIMITS.maxTextLength;
     rejects(doc(...Array.from({ length: count }, () => p(t(chunk)))), 'too_large', '');
+  });
+});
+
+describe('cuerpo Tiptap: imágenes y archivos de la biblioteca (Bloque 08)', () => {
+  const img = (attrs) => ({ type: 'image', attrs });
+
+  it('acepta imágenes con mediaId y alt, y devuelve las referencias con su ruta', () => {
+    const r = accepts(doc(
+      img({ mediaId: 4, alt: 'Fachada' }),
+      { type: 'blockquote', content: [img({ mediaId: 5, alt: '' })] },
+      p(t('folleto', [link('/media/9', { title: null })])),
+    ));
+    assert.deepEqual(r.media, [
+      { mediaId: 4, path: '/content/0/attrs/mediaId' },
+      { mediaId: 5, path: '/content/1/content/0/attrs/mediaId' },
+      { mediaId: 9, path: '/content/2/content/0/marks/0/attrs/href' },
+    ]);
+    assert.deepEqual(accepts(doc(p(t('sin archivos')))).media, []);
+  });
+
+  it('una imagen solo admite mediaId y alt (sin URL ni otros atributos)', () => {
+    rejects(doc(img({ alt: 'x' })), 'missing_attribute', '/content/0/attrs/mediaId');
+    rejects(doc(img({ mediaId: 1, src: '/x.png' })), 'unknown_attribute', '/content/0/attrs/src');
+    rejects(doc(img({ mediaId: 1, onerror: 'alert(1)' })), 'unknown_attribute', '/content/0/attrs/onerror');
+    rejects(doc(img({ mediaId: '1' })), 'invalid_attribute_value');
+    rejects(doc(img({ mediaId: 0 })), 'invalid_attribute_value');
+    rejects(doc(img({ mediaId: 1, alt: 'a'.repeat(BODY_LIMITS.maxAltLength + 1) })), 'invalid_attribute_value');
+    rejects(doc(img({ mediaId: 1, alt: 'a\nb' })), 'invalid_attribute_value');
+    rejects(doc({ type: 'image', attrs: { mediaId: 1 }, content: [] }), 'unknown_property', '/content/0/content');
+  });
+
+  it('las imágenes no van dentro de un párrafo ni de un elemento de lista', () => {
+    rejects(doc(p(img({ mediaId: 1 }))), 'node_not_allowed_here', '/content/0/content/0/type');
+    rejects(doc({ type: 'bulletList', content: [{ type: 'listItem', content: [p(), img({ mediaId: 1 })] }] }), 'node_not_allowed_here');
+  });
+
+  it('bajo /media/ solo se admite la forma exacta /media/<id>', () => {
+    for (const href of ['/media', '/media/', '/media/abc', '/media/0', '/media/1/2', '/media/1?x=1', '/media/01']) {
+      assert.equal(checkHref(href), 'media_href_invalid', href);
+    }
+    assert.equal(checkHref('/media/12'), null);
+    assert.equal(checkHref('/medias/1'), null); // otra ruta del sitio
+  });
+
+  it('el enlace admite title solo nulo (Tiptap lo incluye por defecto)', () => {
+    accepts(doc(p(t('a', [link('https://e.org', { title: null })]))));
+    rejects(doc(p(t('a', [link('https://e.org', { title: 'x' })]))), 'invalid_attribute_value', '/content/0/content/0/marks/0/attrs/title');
   });
 });

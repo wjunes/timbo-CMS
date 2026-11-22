@@ -54,6 +54,18 @@ check('node:crypto (Argon2 y aleatoriedad)', () => {
   return 'argon2 nativo disponible';
 });
 
+// Multimedia y panel (Bloque 08): CRC de PNG, descompresión acotada de PDF y
+// recorrido recursivo del directorio del panel.
+check('node:zlib y node:fs (multimedia y panel)', () => {
+  const zlib = process.getBuiltinModule('node:zlib');
+  if (typeof zlib.crc32 !== 'function') throw new Error('zlib.crc32 no disponible');
+  if (zlib.crc32('IEND') !== 0xae426082) throw new Error('zlib.crc32 devuelve un valor inesperado');
+  zlib.inflateSync(zlib.deflateSync(Buffer.alloc(8)), { maxOutputLength: 16 });
+  const entry = fs.readdirSync(import.meta.dirname, { recursive: true, withFileTypes: true })[0];
+  if (typeof entry?.parentPath !== 'string') throw new Error('Dirent.parentPath no disponible');
+  return 'crc32, inflate con límite y readdir recursivo disponibles';
+});
+
 check('Configuración', () => {
   try {
     const c = loadConfig();
