@@ -9,7 +9,7 @@ Monolito modular sobre Node.js 24 nativo (`node:http`, `node:sqlite`, `node:cryp
 
 Toda autorización se decide en el backend.
 
-## Estado implementado (Bloques 01–06)
+## Estado implementado (Bloques 01–07)
 
 ```text
 backend/
@@ -25,12 +25,13 @@ backend/
     permissions/      Repositorio, autorizador único (can/canView/require) y API de asignación de secciones y permisos
     sections/         Repositorio, slugs y API de administración de secciones (ver docs/SECTIONS.md)
     contents/         Repositorio, validación del cuerpo Tiptap y API de contenidos y versiones (ver docs/CONTENTS.md)
+    editorial/        Transiciones editoriales, revisiones y cola de revisión (ver docs/EDITORIAL.md)
   database/
     connection.js     Apertura segura de SQLite (WAL, FK, defensivo, busy_timeout)
     transaction.js    withTransaction: BEGIN IMMEDIATE / SAVEPOINT anidado
     migrator.js       Migraciones versionadas con checksum, solo hacia delante
     errors.js         Clasificación de errores de SQLite (UNIQUE, triggers)
-    migrations/       001_initial_schema.sql, 002_users_permissions.sql, 003_sections.sql, 004_contents.sql (ver docs/DATABASE.md)
+    migrations/       001_initial_schema.sql, 002_users_permissions.sql, 003_sections.sql, 004_contents.sql, 005_editorial.sql (ver docs/DATABASE.md)
   app.js              Servidor HTTP (sin arrancarlo): cabeceras, enrutado, origen, sesión, CSRF, errores
   server.js           Punto de entrada: config → logger → BD + esquema al día → listen → cierre ordenado
 scripts/
@@ -42,8 +43,8 @@ tests/
   helpers/            utilidades compartidas (BD en memoria migrada, datos de ejemplo)
   helpers/http.js     aplicación completa en puerto efímero para pruebas HTTP
   unit/               config, logger, migrator, transaction, password, sessions, http, router-validation, authorizer, sections-slug, contents-body
-  integration/        servidor HTTP, esquema, conexión a archivo, CLI, arranque, auth, CLI de administración, usuarios y permisos, secciones, contenidos
-  security/           sesiones, fuerza bruta, enumeración, escalada de privilegios, contraseña temporal, secciones, contenidos
+  integration/        servidor HTTP, esquema, conexión a archivo, CLI, arranque, auth, CLI de administración, usuarios y permisos, secciones, contenidos, flujo editorial
+  security/           sesiones, fuerza bruta, enumeración, escalada de privilegios, contraseña temporal, secciones, contenidos, flujo editorial
 docs/                 Documentación del proyecto
 ```
 
@@ -63,7 +64,6 @@ Los directorios se crean cuando tienen contenido real (no se generan carpetas o 
 ```text
 backend/
   database/repositories/                Bloques 03+ (un repositorio por módulo, en su bloque)
-  modules/editorial                     Bloque 07
   modules/media                         Bloque 08
   modules/audit, settings               Bloques 04+ / 10
   services/                             según necesidad

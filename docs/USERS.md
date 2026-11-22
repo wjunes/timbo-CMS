@@ -30,7 +30,7 @@ Los permisos se conceden **por sección**. El catálogo es parte del sistema: a�
 | `content.create` | Crear contenidos y borradores | Bloque 06 |
 | `content.edit` | Editar borradores de cualquier contenido de la sección | Bloque 06 |
 | `content.submit` | Enviar a revisión (flujo `approval`) | Bloque 07 |
-| `content.publish` | Publicar directamente (solo flujo `direct`) | Bloque 07 |
+| `content.publish` | Publicar: borradores en flujo `direct`; en flujo `approval`, solo versiones aprobadas (D-040) | Bloque 07 |
 | `content.unpublish` | Despublicar | Bloque 07 |
 | `content.archive` | Archivar y restaurar | Bloque 07 |
 | `content.delete` | Eliminar (borrado lógico) | Bloque 06 |

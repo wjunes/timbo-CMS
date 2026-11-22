@@ -57,14 +57,36 @@ export function insertVersion(db, { contentId, userId, number, basedOn = null })
 
 const NOW = "strftime('%Y-%m-%dT%H:%M:%fZ', 'now')";
 
-/** Publica directamente una versión en borrador (modalidad direct), respetando las invariantes. */
+/**
+ * Publica una versión respetando las invariantes. En secciones con flujo
+ * `approval` (migración 005) la envía, la revisa y la aprueba antes, con
+ * `userId` como revisor (debe ser general_admin). No abre transacción propia.
+ */
 export function publishVersion(db, { contentId, versionId, userId }) {
+  const { status, workflow } = db
+    .prepare('SELECT v.status, s.workflow FROM content_versions AS v JOIN contents AS c ON c.id = v.content_id JOIN sections AS s ON s.id = c.section_id WHERE v.id = ?')
+    .get(versionId);
+  if (status === 'draft' && workflow === 'approval') {
+    submitVersion(db, { versionId, userId });
+    reviewVersion(db, { versionId, reviewerId: userId, decision: 'approved' });
+  }
   db.prepare(`UPDATE content_versions SET status = 'published', published_by = ?, published_at = ${NOW} WHERE id = ?`).run(userId, versionId);
   db.prepare("UPDATE contents SET status = 'published', published_version_id = ? WHERE id = ?").run(versionId, contentId);
 }
 
 export function submitVersion(db, { versionId, userId }) {
   db.prepare(`UPDATE content_versions SET status = 'pending_review', submitted_by = ?, submitted_at = ${NOW} WHERE id = ?`).run(userId, versionId);
+}
+
+/** Registra la revisión de una versión pendiente y aplica su decisión (migración 005). */
+export function reviewVersion(db, { versionId, reviewerId, decision = 'approved', comment = '' }) {
+  db.prepare('INSERT INTO publication_reviews (content_version_id, reviewer_id, decision, comment) VALUES (?, ?, ?, ?)')
+    .run(versionId, reviewerId, decision, comment);
+  if (decision === 'approved') {
+    db.prepare(`UPDATE content_versions SET status = 'approved', approved_by = ?, approved_at = ${NOW} WHERE id = ?`).run(reviewerId, versionId);
+  } else {
+    db.prepare("UPDATE content_versions SET status = 'changes_requested' WHERE id = ?").run(versionId);
+  }
 }
 
 /** Comprueba que la función falle con un error de SQLite cuyo mensaje contenga `fragment`. */

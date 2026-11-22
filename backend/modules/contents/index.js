@@ -6,8 +6,8 @@
  *   publicada y una "en curso" (draft/pending_review/approved).
  * - Editar nunca sobrescribe la versión publicada: se trabaja sobre un borrador
  *   (nueva versión basada en otra), con control de concurrencia optimista (`revision`).
- * - Las transiciones editoriales (enviar, aprobar, publicar…) son del Bloque 07:
- *   aquí los contenidos nacen y permanecen en borrador.
+ * - Las transiciones editoriales (enviar, aprobar, publicar…) están en
+ *   `modules/editorial` (Bloque 07); aquí se crean y editan borradores.
  * - Autorización en el backend con el autorizador único (D-022). Quien no puede
  *   ver la sección recibe 404; quien la ve pero no tiene el permiso, 403 (auditado).
  * - Cada escritura y su auditoría se confirman en la misma transacción.
@@ -73,7 +73,7 @@ const slugRule = () => rules.string({ min: 1, max: CONTENT_SLUG_MAX_LENGTH, patt
 
 const person = (id, displayName) => (id === null ? null : { id, displayName });
 
-function toVersion(row, { withBody = false } = {}) {
+export function toVersion(row, { withBody = false } = {}) {
   const version = {
     id: row.id,
     contentId: row.content_id,
@@ -99,7 +99,7 @@ function toVersion(row, { withBody = false } = {}) {
   return version;
 }
 
-function toContent(row) {
+export function toContent(row) {
   return {
     id: row.id,
     sectionId: row.section_id,

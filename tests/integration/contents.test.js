@@ -3,7 +3,7 @@
  */
 import assert from 'node:assert/strict';
 import { afterEach, beforeEach, describe, it } from 'node:test';
-import { publishVersion, submitVersion } from '../helpers/db.js';
+import { publishVersion, reviewVersion, submitVersion } from '../helpers/db.js';
 import { startApp } from '../helpers/http.js';
 
 let app;
@@ -224,9 +224,9 @@ describe('contenidos: versionado', () => {
     const { content, v1 } = await published();
     const v2 = (await api.json(`/api/contents/${content.id}/versions`, { method: 'POST', body: {} })).body.version;
     await save(content.id, v2.id, { revision: 1, title: 'Rechazada' });
-    // Simulación del Bloque 07: revisión con cambios solicitados.
+    // Revisión con cambios solicitados (desde la migración 005 exige la revisión registrada).
     submitVersion(app.db, { versionId: v2.id, userId: admin.id });
-    app.db.prepare("UPDATE content_versions SET status = 'changes_requested' WHERE id = ?").run(v2.id);
+    reviewVersion(app.db, { versionId: v2.id, reviewerId: admin.id, decision: 'changes_requested' });
 
     const v3 = (await api.json(`/api/contents/${content.id}/versions`, { method: 'POST', body: { basedOnVersionId: v2.id } })).body.version;
     assert.equal(v3.versionNumber, 3);

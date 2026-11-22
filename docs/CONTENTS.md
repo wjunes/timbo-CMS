@@ -2,7 +2,7 @@
 
 Implementado en el Bloque 06. Código en [`backend/modules/contents/`](../backend/modules/contents/); esquema en las migraciones [001](../backend/database/migrations/001_initial_schema.sql) y [004](../backend/database/migrations/004_contents.sql).
 
-Las transiciones editoriales (enviar a revisión, aprobar, solicitar cambios, publicar, despublicar, archivar) son del **Bloque 07**. El editor Tiptap y las imágenes, del **Bloque 08**. El renderizado público, del **Bloque 09**. En este bloque los contenidos se crean y editan en borrador.
+Las transiciones editoriales (enviar a revisión, aprobar, solicitar cambios, publicar, despublicar, archivar y restaurar) se describen en [EDITORIAL.md](EDITORIAL.md) (Bloque 07). El editor Tiptap y las imágenes son del **Bloque 08**; el renderizado público, del **Bloque 09**.
 
 ## Modelo
 
@@ -10,19 +10,19 @@ Un **contenido** (`contents`) pertenece a una sección y tiene un slug único de
 
 | Estado del contenido | Significado |
 | --- | --- |
-| `draft` | Nunca publicado, o despublicado (Bloque 07). |
+| `draft` | Nunca publicado, o despublicado. |
 | `published` | Tiene una versión publicada (`published_version_id`). |
-| `archived` | Retirado; no admite edición (Bloque 07). |
+| `archived` | Retirado; no admite edición hasta restaurarlo. |
 | `deleted` | Eliminado lógicamente; conserva su historial. |
 
 Cada **versión** (`content_versions`) guarda título, resumen y cuerpo, con número correlativo, versión de origen (`based_on_version_id`) y autoría: quién la creó, la modificó, la envió, la aprobó y la publicó.
 
-| Estado de la versión | Editable | Quién la lleva a ese estado |
+| Estado de la versión | Editable | Cómo se llega ([EDITORIAL.md](EDITORIAL.md)) |
 | --- | --- | --- |
-| `draft` | sí (con `revision`) | Bloque 06 (alta) |
-| `pending_review`, `approved` | no | Bloque 07 |
-| `changes_requested` | no (se crea una versión nueva a partir de ella) | Bloque 07 |
-| `published`, `archived` | no | Bloque 07 |
+| `draft` | sí (con `revision`) | alta del contenido o versión nueva |
+| `pending_review`, `approved` | no | enviar a revisión; aprobación del `general_admin` |
+| `changes_requested` | no (se crea una versión nueva a partir de ella) | solicitud de cambios del `general_admin` |
+| `published`, `archived` | no | publicar; reemplazar, despublicar o archivar |
 
 Invariantes garantizadas por la base:
 
@@ -37,7 +37,7 @@ Invariantes garantizadas por la base:
 ```text
 v1 (published) ──based_on──> v2 (draft) ──edición──> v2 (draft, revision n)
        ▲                                                   │
-       └──── sigue publicada hasta que v2 se publique (Bloque 07)
+       └──── sigue publicada hasta que v2 se publique (EDITORIAL.md)
 ```
 
 1. `POST /api/contents/:id/versions` crea un borrador copiado de la versión publicada (o, si no hay, de la última). Con `basedOnVersionId` se parte de otra versión del mismo contenido: una rechazada (`changes_requested`) o una anterior (para recuperarla).
@@ -137,12 +137,12 @@ Contenido:
 | `payload_too_large` | 413 | Petición mayor que el límite |
 | `slug_taken` | 409 | Slug en uso en la sección |
 | `section_archived` | 409 | Escritura en una sección archivada |
-| `content_not_editable` | 409 | Contenido archivado |
+| `content_not_editable` | 409 | Contenido archivado (restaurar antes) |
 | `version_not_editable` | 409 | La versión no es un borrador |
 | `revision_conflict` | 409 | Revisión desactualizada (con `currentRevision`) |
 | `open_version_exists` | 409 | Ya hay una versión en curso (con `openVersionId`) |
 | `only_version` | 409 | Descartar la única versión |
-| `content_published` | 409 | Eliminar un contenido publicado (despublicar antes, Bloque 07) |
+| `content_published` | 409 | Eliminar un contenido publicado (despublicar antes) |
 | `content_in_review` | 409 | Eliminar un contenido con una versión en revisión o aprobada (D-037) |
 
 ## Auditoría
@@ -160,7 +160,6 @@ Cada escritura se audita en la misma transacción (entidad `content`):
 
 ## Pendiente en otros bloques
 
-- Transiciones editoriales y restauración de contenidos archivados (07).
 - Editor Tiptap, imágenes y su relación con las versiones (`content_media`) (08).
 - Renderizado público, colisiones de slug entre contenidos y subsecciones de una misma sección y redirecciones al cambiar slugs (09, D-039).
-- Consulta y restauración de contenidos eliminados: sin bloque asignado todavía (se propondrá en el Bloque 07 o en el 10).
+- Consulta y restauración de contenidos eliminados: sin bloque asignado todavía (se propondrá en el Bloque 10).

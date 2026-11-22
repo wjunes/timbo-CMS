@@ -2,7 +2,7 @@
 
 La seguridad forma parte del diseño desde el Bloque 01. Este documento distingue entre lo **implementado y verificado** y lo **planificado**.
 
-## Implementado (Bloques 01–06)
+## Implementado (Bloques 01–07)
 
 | Medida | Dónde | Verificación |
 | --- | --- | --- |
@@ -57,13 +57,19 @@ La seguridad forma parte del diseño desde el Bloque 01. Este documento distingu
 | Sin asignación masiva de estado, autoría, sección ni punteros de publicación | `modules/contents` | `tests/security/contents.security.test.js` |
 | La versión publicada nunca se sobrescribe; borradores con control de concurrencia optimista | migraciones 001 y 004, `modules/contents` | `tests/integration/contents.test.js` |
 | Contenidos sin borrado físico ni cambio de sección; secciones archivadas de solo lectura | migración 004 | `tests/integration/schema.test.js` |
+| Solo el `general_admin` aprueba o solicita cambios (ruta, y trigger de la base); denegaciones auditadas | `modules/editorial`, migraciones 001 y 005 | `tests/security/editorial.security.test.js` |
+| En secciones `approval` nada se publica sin aprobación, tampoco escribiendo en la base por otra vía; la aprobación queda ligada a la versión exacta, que es inmutable | `modules/editorial`, migración 005 | idem, `tests/integration/editorial.test.js`, `schema.test.js` |
+| Transiciones con su permiso por sección (`content.submit`, `content.publish`, `content.unpublish`, `content.archive`); secciones no visibles responden `404` | `modules/editorial` | `tests/security/editorial.security.test.js` |
+| Solo transiciones válidas entre estados; estado releído y condicionado en la transacción | migración 005, `modules/editorial/repository.js` | `tests/integration/schema.test.js`, `editorial.test.js` |
+| El cuerpo se vuelve a validar antes de enviar y de publicar | `modules/editorial` | `tests/integration/editorial.test.js` |
+| Sin asignación masiva de estado, decisión, revisor ni autoría en las transiciones | idem | `tests/security/editorial.security.test.js` |
 
 ## Planificado
 
 | Medida | Bloque |
 | --- | --- |
 | Consultas SQL parametrizadas en todos los repositorios (restricciones e integridad referencial: hechas en el Bloque 02) | 03+ |
-| Aplicación del autorizador en las transiciones editoriales y la multimedia | 07–08 |
+| Aplicación del autorizador en la multimedia | 08 |
 | Imágenes en el cuerpo (Tiptap) y escapado al renderizar | 08–09 |
 | Validación real de archivos (firma, MIME, extensión, tamaño), nombres aleatorios, sin ejecución | 08 |
 | CSP específica para sitio público y panel | 08–09 |

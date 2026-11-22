@@ -10,7 +10,7 @@ Estados: `PENDING` · `IN_PROGRESS` · `VALIDATION` · `APPROVED` · `BLOCKED`
 | 04 | Usuarios, roles y permisos | `APPROVED` |
 | 05 | Administración de secciones | `APPROVED` |
 | 06 | Motor de contenidos y versionado | `APPROVED` |
-| 07 | Flujos editoriales y aprobaciones | `PENDING` |
+| 07 | Flujos editoriales y aprobaciones | `APPROVED` |
 | 08 | Editor enriquecido y multimedia | `PENDING` |
 | 09 | Sitio público y presentación adaptable | `PENDING` |
 | 10 | Auditoría, copias de seguridad y restauración | `PENDING` |
@@ -130,3 +130,23 @@ Cada bloque requiere aprobación explícita antes de comenzar el siguiente.
 - [x] Todas las pruebas pasan (incluidas las de los Bloques 01–05) y se comprobó el flujo de extremo a extremo con el servidor real.
 - [x] Documentación actualizada.
 - [x] Revisión y aprobación del responsable del proyecto (2026-11-21).
+
+## Bloque 07 — Detalle
+
+**Alcance:** migración 005 (transiciones válidas de versión, revisión obligatoria y única por versión, sin publicación de borradores en secciones `approval`); módulo `editorial` con enviar a revisión, aprobar, solicitar cambios, publicar (con reemplazo atómico de la versión publicada), despublicar, archivar y restaurar contenidos; revisiones por versión y cola de revisión del `general_admin`; revalidación del cuerpo; auditoría; pruebas; documentación ([EDITORIAL.md](EDITORIAL.md)).
+
+**Fuera de alcance:** publicación programada y notificaciones (no especificadas), interfaz (08–09), consulta y restauración de contenidos eliminados.
+
+**Criterios de aceptación:**
+
+- [x] Flujo `direct`: publicación de borradores por quien tiene `content.publish`.
+- [x] Flujo `approval`: enviar, revisión del `general_admin` (aprobar o solicitar cambios con comentario) y publicación de la versión aprobada exacta.
+- [x] Nadie, ni un `section_admin` con todos los permisos, aprueba ni publica sin aprobación en secciones `approval`; la base lo garantiza también.
+- [x] Publicar nunca sobrescribe: la versión anterior se archiva en la misma transacción y queda en el historial.
+- [x] Despublicar, archivar y restaurar contenidos.
+- [x] Se registra quién envió, aprobó (o pidió cambios) y publicó cada versión; cada transición se audita.
+- [x] Solo transiciones válidas; las versiones enviadas son inmutables; el cuerpo se revalida antes de enviar y publicar.
+- [x] Autorización en el backend por sección y permiso; sin acceso entre secciones; denegaciones auditadas.
+- [x] Todas las pruebas pasan (incluidas las de los Bloques 01–06) y se comprobó el flujo de extremo a extremo con el servidor real.
+- [x] Documentación actualizada.
+- [x] Revisión y aprobación del responsable del proyecto (2026-11-22).

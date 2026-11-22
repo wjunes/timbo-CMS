@@ -13,6 +13,7 @@ import {
   insertVersion,
   migratedMemoryDb,
   publishVersion,
+  reviewVersion,
   submitVersion,
 } from '../helpers/db.js';
 
@@ -257,7 +258,14 @@ describe('esquema: contenidos y versiones', () => {
   it('los estados exigen sus marcas de autoría (enviado, aprobado, publicado)', () => {
     const { versionId } = insertContent(db, { userId: editor });
     expectSqliteError(assert, () => run("UPDATE content_versions SET status = 'pending_review' WHERE id = ?", versionId), 'CHECK constraint failed');
-    expectSqliteError(assert, () => run("UPDATE content_versions SET status = 'published' WHERE id = ?", versionId), 'CHECK constraint failed');
+    // Desde la migración 005, en una sección 'approval' el borrador no se publica sin aprobación;
+    // la marca de publicación se comprueba en una sección 'direct'.
+    expectSqliteError(assert, () => run("UPDATE content_versions SET status = 'published' WHERE id = ?", versionId), 'approval_required');
+    const direct = Number(
+      run("INSERT INTO sections (section_type_id, slug, name, presentation, workflow) VALUES (1, 'marcas-direct', 'D', 'page', 'direct')").lastInsertRowid,
+    );
+    const d = insertContent(db, { userId: editor, sectionId: direct });
+    expectSqliteError(assert, () => run("UPDATE content_versions SET status = 'published' WHERE id = ?", d.versionId), 'CHECK constraint failed');
     expectSqliteError(
       assert,
       () => run("UPDATE content_versions SET submitted_by = ? WHERE id = ?", editor, versionId),
@@ -555,5 +563,86 @@ describe('esquema 004: contenidos', () => {
         ),
       'version_must_start_as_draft',
     );
+  });
+});
+
+describe('esquema 005: flujo editorial', () => {
+  const NOW = "strftime('%Y-%m-%dT%H:%M:%fZ','now')";
+  const setStatus = (id, status) => run('UPDATE content_versions SET status = ? WHERE id = ?', status, id);
+  const directSection = () =>
+    Number(run("INSERT INTO sections (section_type_id, slug, name, presentation, workflow) VALUES (1, 'directa-005', 'D', 'page', 'direct')").lastInsertRowid);
+  const review = (versionId, decision = 'approved', reviewer = admin) =>
+    run('INSERT INTO publication_reviews (content_version_id, reviewer_id, decision) VALUES (?, ?, ?)', versionId, reviewer, decision);
+
+  it('solo se admiten las transiciones del flujo', () => {
+    // draft -> approved / changes_requested / archived
+    const a = insertContent(db, { userId: editor });
+    run(`UPDATE content_versions SET submitted_by = ?, submitted_at = ${NOW}, approved_by = ?, approved_at = ${NOW} WHERE id = ?`, editor, admin, a.versionId);
+    for (const status of ['approved', 'changes_requested', 'archived']) {
+      expectSqliteError(assert, () => setStatus(a.versionId, status), 'version_invalid_transition');
+    }
+    // pending_review -> published / archived
+    const b = insertContent(db, { userId: editor });
+    submitVersion(db, { versionId: b.versionId, userId: editor });
+    run(`UPDATE content_versions SET published_by = ?, published_at = ${NOW} WHERE id = ?`, admin, b.versionId);
+    expectSqliteError(assert, () => setStatus(b.versionId, 'published'), 'version_invalid_transition');
+    expectSqliteError(assert, () => setStatus(b.versionId, 'archived'), 'version_invalid_transition');
+    // approved -> archived / changes_requested
+    reviewVersion(db, { versionId: b.versionId, reviewerId: admin });
+    expectSqliteError(assert, () => setStatus(b.versionId, 'archived'), 'version_invalid_transition');
+    expectSqliteError(assert, () => setStatus(b.versionId, 'changes_requested'), 'version_invalid_transition');
+    // changes_requested es final
+    const c = insertContent(db, { userId: editor });
+    submitVersion(db, { versionId: c.versionId, userId: editor });
+    reviewVersion(db, { versionId: c.versionId, reviewerId: admin, decision: 'changes_requested' });
+    expectSqliteError(assert, () => setStatus(c.versionId, 'pending_review'), 'version_invalid_transition');
+    // archived es final
+    publishVersion(db, { contentId: b.contentId, versionId: b.versionId, userId: admin });
+    withTransaction(db, () => {
+      run("UPDATE contents SET status = 'draft', published_version_id = NULL WHERE id = ?", b.contentId);
+      setStatus(b.versionId, 'archived');
+    });
+    expectSqliteError(assert, () => setStatus(b.versionId, 'published'), 'version_invalid_transition');
+  });
+
+  it('aprobar o solicitar cambios exige la revisión registrada con esa decisión', () => {
+    const { versionId } = insertContent(db, { userId: editor });
+    submitVersion(db, { versionId, userId: editor });
+    const approve = (by = admin) =>
+      run(`UPDATE content_versions SET status = 'approved', approved_by = ?, approved_at = ${NOW} WHERE id = ?`, by, versionId);
+    expectSqliteError(assert, () => approve(), 'review_required');
+    expectSqliteError(assert, () => setStatus(versionId, 'changes_requested'), 'review_required');
+    review(versionId, 'changes_requested');
+    expectSqliteError(assert, () => approve(), 'review_required');
+    setStatus(versionId, 'changes_requested');
+  });
+
+  it('la aprobación la firma el revisor y cada versión se revisa una sola vez', () => {
+    const { versionId } = insertContent(db, { userId: editor });
+    submitVersion(db, { versionId, userId: editor });
+    review(versionId);
+    expectSqliteError(assert, () => review(versionId, 'changes_requested'), 'UNIQUE constraint failed');
+    expectSqliteError(
+      assert,
+      () => run(`UPDATE content_versions SET status = 'approved', approved_by = ?, approved_at = ${NOW} WHERE id = ?`, editor, versionId),
+      'review_required',
+    );
+    run(`UPDATE content_versions SET status = 'approved', approved_by = ?, approved_at = ${NOW} WHERE id = ?`, admin, versionId);
+  });
+
+  it('en secciones approval un borrador no se publica; en direct, sí', () => {
+    const a = insertContent(db, { userId: editor });
+    expectSqliteError(
+      assert,
+      () => run(`UPDATE content_versions SET status = 'published', published_by = ?, published_at = ${NOW} WHERE id = ?`, admin, a.versionId),
+      'approval_required',
+    );
+    const b = insertContent(db, { userId: editor, sectionId: directSection() });
+    publishVersion(db, { contentId: b.contentId, versionId: b.versionId, userId: editor });
+    assert.equal(get('SELECT status FROM content_versions WHERE id = ?', b.versionId).status, 'published');
+  });
+
+  it('actualiza la descripción de content.publish (D-040)', () => {
+    assert.match(get("SELECT description FROM permissions WHERE code = 'content.publish'").description, /aprobadas/);
   });
 });

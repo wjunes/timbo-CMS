@@ -203,3 +203,30 @@ Formato: contexto → decisión → consecuencias. Las decisiones solo se revisa
 - **Riesgo detectado:** un contenido y una subsección de la misma sección pueden tener el mismo slug (`/noticias/agenda`). Hoy no hay conflicto porque no existe el sitio público.
 - **Propuesta:** decidirlo en el Bloque 09 junto con el enrutado público (precedencia o comprobación cruzada en ambos sentidos). Comprobar solo en un sentido ahora sería incompleto y exigiría modificar el Bloque 05, ya aprobado.
 - **Acordado (2026-11-21):** el responsable del proyecto aprueba aplazarlo; se resolverá en el Bloque 09.
+
+## D-040 · `content.publish` también publica versiones aprobadas en secciones `approval` (Bloque 07)
+
+- **Decisión:** en las secciones `approval`, aprobar y publicar son pasos distintos. Publica la versión aprobada exacta el `general_admin` o un `section_admin` con `content.publish`. En las secciones `direct`, `content.publish` publica borradores.
+- **Motivo:** la aprobación queda ligada a una versión concreta e inmutable, y quien gestiona la sección decide cuándo sale. Nadie publica sin aprobación: lo impiden la aplicación y la base (`approval_required`).
+- **Cambio respecto al catálogo del Bloque 04:** la descripción de `content.publish` decía «solo secciones con flujo direct». La migración 005 la actualiza (el código del permiso no cambia), y también se actualizó [USERS.md](USERS.md). Aprobado por el responsable del proyecto el 2026-11-22.
+
+## D-041 · El `general_admin` sigue el mismo flujo (Bloque 07)
+
+- **Decisión:** en las secciones `approval`, el `general_admin` también envía, aprueba y publica en pasos separados; no hay atajo «publicar sin revisión».
+- **Motivo:** que quede registrado quién envió, quién aprobó y quién publicó cada versión, sin excepciones (tampoco puertas traseras). La interfaz podrá encadenar las tres llamadas.
+
+## D-042 · Despublicar y archivar sin aprobación (Bloque 07)
+
+- **Decisión:** despublicar (`content.unpublish`), archivar y restaurar (`content.archive`) no pasan por revisión, ni siquiera en secciones `approval`.
+- **Motivo:** retiran contenido del sitio, no lo exponen. Restaurar deja el contenido en borrador, así que no publica nada. Archivar no se permite con una versión en revisión o aprobada (`content_in_review`), por coherencia con D-037.
+
+## D-043 · Las transiciones de borrador exigen la `revision` del cliente (Bloque 07)
+
+- **Decisión:** enviar a revisión y publicar un borrador (flujo `direct`) exigen la `revision` que tiene el cliente; si no coincide, `409 revision_conflict`.
+- **Motivo:** se envía o se publica exactamente lo que la persona vio, aunque otra haya guardado el borrador entre medias. Las versiones aprobadas son inmutables y no la necesitan.
+
+## D-044 · Defensa en la base del flujo editorial (Bloque 07)
+
+- **Decisión:** la migración 005 añade transiciones válidas, revisión obligatoria y única por versión, aprobación firmada por el revisor y `approval_required`. La regla de «sección archivada sin transiciones» queda solo en la aplicación.
+- **Motivo:** las garantías clave (nadie publica sin aprobación, aprobaciones ligadas a una versión) se cumplen aunque se escriba en la base por otra vía. Llevar a la base la de la sección archivada exigiría modificar una prueba aprobada del Bloque 06.
+- **Pruebas anteriores ajustadas:** el ayudante `publishVersion` (`tests/helpers/db.js`) recorre ahora enviar, revisar y aprobar en las secciones `approval`; se añade `reviewVersion`. En `contents.test.js`, la versión rechazada se crea con su revisión. En `schema.test.js` («los estados exigen sus marcas…»), publicar un borrador en una sección `approval` da `approval_required`, y el `CHECK` de la marca de publicación se comprueba en una sección `direct`. Las reglas que comprobaban siguen cumpliéndose.

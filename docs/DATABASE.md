@@ -36,7 +36,7 @@ unidades de red, y las carpetas sincronizadas (OneDrive, Dropbox…) pueden corr
 - Las migraciones no pueden contener `BEGIN`/`COMMIT`/`ROLLBACK`/`SAVEPOINT` propios.
 - **El servidor no migra al arrancar:** si hay migraciones pendientes o inconsistentes, no arranca. Hay que ejecutar `npm run db:migrate` explícitamente.
 
-## Modelo (migraciones 001–004)
+## Modelo (migraciones 001–005)
 
 Todas las tablas son `STRICT`. Las fechas se guardan como TEXT ISO-8601 UTC con milisegundos. Los booleanos son `INTEGER` 0/1.
 
@@ -111,7 +111,7 @@ Cada una tiene su prueba en `tests/integration/schema.test.js`. Los triggers fal
 - **Versión** (`content_versions.status`) — `draft` · `pending_review` · `changes_requested` · `approved` · `published` · `archived`. Indica el estado editorial.
 - `changes_requested` es final para esa versión: el autor crea una nueva versión (`based_on_version_id`) a partir de ella. Así se respeta la inmutabilidad de lo que ya se envió a revisión.
 - Al reemplazar la versión publicada, la anterior pasa a `archived` y queda en el historial.
-- Las transiciones válidas entre estados (qué puede pasar a qué) se validan en el Bloque 07. La base de datos solo garantiza las invariantes de la tabla anterior.
+- Las transiciones válidas entre estados las garantiza la migración 005 (ver abajo y [EDITORIAL.md](EDITORIAL.md)).
 
 ### Reemplazar la versión publicada (una sola transacción)
 
@@ -160,6 +160,19 @@ Solo añade triggers; no cambia tablas ni datos.
 | … ni en contenidos archivados o eliminados | `content_not_editable` |
 
 Ver [CONTENTS.md](CONTENTS.md).
+
+### Migración 005 (Bloque 07)
+
+Añade triggers y un índice, y actualiza la descripción de `content.publish` (D-040). No cambia tablas.
+
+| Regla | Código |
+| --- | --- |
+| Transiciones de versión: `draft` → `pending_review`/`published`; `pending_review` → `approved`/`changes_requested`; `approved` → `published`; `published` → `archived` | `version_invalid_transition` |
+| Aprobar o solicitar cambios exige la revisión registrada con esa decisión; la aprobación la firma el revisor | `review_required` |
+| Una revisión por versión | `ux_reviews_one_per_version` |
+| En secciones `approval` un borrador no se publica sin aprobación | `approval_required` |
+
+Ver [EDITORIAL.md](EDITORIAL.md).
 
 ## Concurrencia
 
