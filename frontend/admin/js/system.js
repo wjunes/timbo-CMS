@@ -16,21 +16,54 @@ const page = (layout, active, ...content) => layout(h('h1', { text: 'Sistema' })
 
 // --- Configuración ----------------------------------------------------------
 
+const HEX = /^#[0-9a-f]{6}$/;
+
+/**
+ * Muestra de un modo de una paleta. Los colores se aplican con la API CSSOM
+ * (`style.setProperty`), que la CSP admite y que no interpreta texto: un valor que no
+ * sea '#rrggbb' se descarta. Así no hace falta ningún atributo `style` (h() los prohíbe).
+ */
+function swatch(label, colors) {
+  const paint = (el, props) => {
+    for (const [prop, key] of props) if (HEX.test(colors[key])) el.style.setProperty(prop, colors[key]);
+    return el;
+  };
+  return paint(h('span', { class: 'swatch' },
+    paint(h('span', { class: 'bar', text: label }), [['background-color', 'headerBg'], ['color', 'headerText']]),
+    h('span', { class: 'body' },
+      paint(h('span', { text: 'Texto' }), [['color', 'text']]),
+      paint(h('span', { text: 'Enlace' }), [['color', 'accent']]))), [['background-color', 'bg'], ['border-color', 'border']]);
+}
+
+function palettePicker(palettes, selected) {
+  return h('fieldset', { class: 'palettes' },
+    h('legend', { text: 'Paleta de colores' }),
+    palettes.map((p) => h('label', { class: 'palette' },
+      h('span', { class: 'title' },
+        h('input', { type: 'radio', name: 'palette', value: p.id, checked: p.id === selected }),
+        p.name, p.custom ? h('span', { class: 'badge', text: 'Exclusiva' }) : null),
+      h('span', { class: 'swatches' }, swatch('Claro', p.light), swatch('Oscuro', p.dark)))));
+}
+
 export async function renderSettings(root, layout) {
-  const { settings } = await api('/api/settings');
+  const { settings, palettes } = await api('/api/settings');
   const msg = h('div', { class: 'messages' });
   const siteName = h('input', { value: settings.siteName, required: true, maxLength: 120 });
   const siteDescription = h('input', { value: settings.siteDescription, maxLength: 300 });
+  const picker = palettePicker(palettes, settings.sitePalette);
   const save = h('button', { type: 'submit', class: 'primary', text: 'Guardar' });
   const form = h('form', { class: 'card', onSubmit: async (e) => {
     e.preventDefault();
-    const data = await run(save, msg, () => api('/api/settings', { method: 'PATCH', body: { siteName: siteName.value, siteDescription: siteDescription.value } }), errorMessage);
+    const sitePalette = picker.querySelector('input[name=palette]:checked')?.value ?? settings.sitePalette;
+    const data = await run(save, msg, () => api('/api/settings', { method: 'PATCH', body: { siteName: siteName.value, siteDescription: siteDescription.value, sitePalette } }), errorMessage);
     if (data) msg.append(notice('ok', 'Configuración guardada. El sitio público ya la muestra.'));
   } },
   h('h2', { text: 'Sitio público' }), msg,
   h('label', {}, 'Nombre del sitio', siteName),
   h('label', {}, 'Descripción', siteDescription),
   h('p', { class: 'muted small', text: 'Texto plano: el sitio lo muestra tal cual, sin interpretar HTML.' }),
+  picker,
+  h('p', { class: 'muted small', text: 'Cada paleta tiene un modo claro y uno oscuro, con el contraste mínimo de accesibilidad comprobado. Los visitantes eligen el modo en la cabecera del sitio; si no eligen, se usa el de su dispositivo.' }),
   save);
   mount(root, ...page(layout, 'settings', form));
 }

@@ -23,7 +23,8 @@ backend/
     auth/             Contraseñas (Argon2id), sesiones, límite de intentos, rutas /api/auth/* (ver docs/AUTH.md)
     audit/            Escritura en audit_logs con cadena de huellas, consulta y verificación (ver docs/AUDIT.md)
     backups/          Copias de seguridad, verificación, retención, restauración y bloqueos (ver docs/BACKUPS.md)
-    settings/         Configuración general del sitio
+    settings/         Configuración general del sitio, también la paleta
+    themes/           Paletas: catálogo de serie, THEMES_FILE, contraste WCAG y hoja generada (ver docs/THEMES.md)
     users/            Repositorio y API de administración de usuarios (ver docs/USERS.md)
     permissions/      Repositorio, autorizador único (can/canView/require) y API de asignación de secciones y permisos
     sections/         Repositorio, slugs y API de administración de secciones (ver docs/SECTIONS.md)
@@ -36,7 +37,7 @@ backend/
     transaction.js    withTransaction: BEGIN IMMEDIATE / SAVEPOINT anidado
     migrator.js       Migraciones versionadas con checksum, solo hacia delante
     errors.js         Clasificación de errores de SQLite (UNIQUE, triggers)
-    migrations/       001_initial_schema.sql, 002_users_permissions.sql, 003_sections.sql, 004_contents.sql, 005_editorial.sql, 006_media.sql, 007_public_site.sql, 008_audit_backups.sql (ver docs/DATABASE.md)
+    migrations/       001_initial_schema.sql, 002_users_permissions.sql, 003_sections.sql, 004_contents.sql, 005_editorial.sql, 006_media.sql, 007_public_site.sql, 008_audit_backups.sql, 009_ui_preferences.sql (ver docs/DATABASE.md)
   app.js              Servidor HTTP (sin arrancarlo): cabeceras, enrutado, origen, sesión, CSRF, errores
   server.js           Punto de entrada: config → logger → BD + esquema al día → listen → cierre ordenado
 scripts/
@@ -52,13 +53,13 @@ frontend/
   public/assets/      Hoja de estilos del sitio público, servida en /assets/
 storage/              STORAGE_DIR, no versionado ni servido: media/ (archivos subidos), private/, backups/ y cms.lock
 database/             cms.db (+ -wal/-shm) en tiempo de ejecución, no versionado
-deploy/               Despliegue de referencia: Caddyfile, nginx, servicio systemd, entorno de producción, copias externas (restic)
+deploy/               Despliegue de referencia: Caddyfile, nginx, servicio systemd, entorno de producción, copias externas (restic) y ejemplo de paletas de cliente
 tests/                unit/, integration/, security/ (npm test) y browser/ (npm run test:browser, necesita Chrome)
 tests/
   helpers/            utilidades compartidas (BD en memoria migrada, datos de ejemplo)
   helpers/http.js     aplicación completa en puerto efímero para pruebas HTTP
-  unit/               config, logger, migrator, transaction, password, sessions, http, router-validation, authorizer, sections-slug, contents-body, contents-render, media-inspect, media-names, static, editor-schema
-  integration/        servidor HTTP, esquema, conexión a archivo, CLI, arranque, auth, CLI de administración, usuarios y permisos, secciones, contenidos, flujo editorial, multimedia
+  unit/               config, logger, migrator, transaction, password, sessions, http, router-validation, authorizer, sections-slug, contents-body, contents-render, media-inspect, media-names, static, editor-schema, deploy-config, themes
+  integration/        servidor HTTP, esquema, conexión a archivo, CLI, arranque, auth, CLI de administración, usuarios y permisos, secciones, contenidos, flujo editorial, multimedia, sitio público, auditoría, copias, mantenimiento, ciclo completo, procesos, paletas y modos
   security/           sesiones, fuerza bruta, enumeración, escalada de privilegios, contraseña temporal, secciones, contenidos, flujo editorial, multimedia y panel
 docs/                 Documentación del proyecto
 ```
@@ -66,7 +67,7 @@ docs/                 Documentación del proyecto
 ### Flujo de arranque
 
 1. `node --env-file-if-exists=.env` carga `.env` sin sobrescribir variables reales.
-2. `loadConfig(process.env)` valida y congela la configuración; si falla, sale con código 1.
+2. `loadConfig(process.env)` valida y congela la configuración; si falla, sale con código 1. Después se validan las paletas (las de serie y las de `THEMES_FILE`), y si alguna no es válida o no cumple el contraste, también sale con código 1.
 3. Se crea el logger con el nivel configurado (sin stack traces en producción).
 4. `openDatabase(DATABASE_PATH, { create: false })` y `assertSchemaCurrent()`: si la base no existe o hay migraciones pendientes o modificadas, sale con código 1 (no migra automáticamente).
 5. `createServer()` aplica cabeceras de seguridad, sirve el panel (`/admin/…`) y los recursos públicos (`/assets/…`) desde listas cerradas con su CSP, enruta la API (404/405); lo que no es de la API lo atiende el sitio público (HTML, solo GET/HEAD); exige mismo origen en métodos que modifican estado, resuelve la sesión en rutas autenticadas (401) y exige `X-CSRF-Token` si modifican estado. Con contraseña temporal solo se permiten las rutas marcadas `allowDuringPasswordChange`, y si la ruta exige un rol se comprueba aquí (403 auditado). Cada 15 min se purgan las sesiones caducadas. `server.js` mantiene el bloqueo `STORAGE_DIR/cms.lock` mientras está en marcha y programa las copias automáticas.

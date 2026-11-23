@@ -12,9 +12,9 @@ Implementado en el Bloque 09. Código en [`backend/modules/public/`](../backend/
   default-src 'none'; style-src 'self'; img-src 'self'; form-action 'none'; frame-ancestors 'none'; base-uri 'none'; object-src 'none'
   ```
 
-- **Diseño:** adaptable (sin desplazamiento horizontal a 375 px; las tablas anchas se desplazan dentro de su contenedor), con modo oscuro según el sistema y estilos de impresión.
+- **Diseño:** adaptable (sin desplazamiento horizontal a 375 px; las tablas anchas se desplazan dentro de su contenedor), con modo claro y oscuro (el del sistema, o el que elija el visitante en la cabecera), paleta de colores elegida por la administración general y estilos de impresión (Bloque 12, ver [THEMES.md](THEMES.md)).
 - **Accesibilidad:** enlace «Saltar al contenido», regiones y migas de pan con `aria-current`, foco visible y `lang="es"`.
-- **Sin cookies:** el sitio público no lee ni fija ninguna.
+- **Una sola cookie, de preferencia:** `site_mode` guarda el modo claro u oscuro si el visitante lo elige (D-070). No identifica a nadie y no hay ninguna otra.
 
 ## Rutas
 
@@ -24,8 +24,10 @@ Implementado en el Bloque 09. Código en [`backend/modules/public/`](../backend/
 | `/<ruta-de-sección>` | La sección con su presentación, con paginación `?pagina=N` |
 | `/<ruta-de-sección>/<slug>` | Un contenido |
 | `/media/<id>` | Un archivo usado por un contenido publicado |
-| `/sitemap.xml`, `/robots.txt` | Mapa del sitio (solo lo visible) e instrucciones para buscadores (excluye `/admin/` y `/api/`) |
+| `/sitemap.xml`, `/robots.txt` | Mapa del sitio (solo lo visible) e instrucciones para buscadores (excluye `/admin/`, `/api/` y `/_modo`) |
 | `/favicon.ico` | `204`, hasta que haya un icono propio (D-057) |
+| `/assets/palette.css` | Colores de la paleta elegida, generados por el servidor (Bloque 12) |
+| `/_modo?m=…&volver=…` | Guarda el modo del visitante y vuelve a la página (`303`; ver [THEMES.md](THEMES.md#modo-del-visitante)) |
 | `/assets/…` | Hoja de estilos, desde una lista cerrada de archivos |
 
 - **Formato de la ruta:** cada segmento debe ser un slug (`[a-z0-9]` con guiones simples), con 4 segmentos como máximo (3 niveles de sección y el contenido). Cualquier otra forma da `404`, incluidos los intentos de path traversal y las mayúsculas.
@@ -65,14 +67,14 @@ Implementado en el Bloque 09. Código en [`backend/modules/public/`](../backend/
 
 ## Caché
 
-Las páginas, el sitemap y los archivos llevan `ETag` y `Cache-Control: no-cache`. El navegador revalida siempre (`304` si nada cambió), así que despublicar tiene efecto inmediato. El `304` repite las cabeceras propias de la respuesta: el navegador actualiza con ellas la copia guardada, y con la CSP base la página perdería los estilos y las imágenes. Este fallo se detectó en la prueba con navegador real y tiene una prueba de regresión.
+Las páginas, el sitemap, la hoja de la paleta y los archivos llevan `ETag` y `Cache-Control: no-cache`. Las páginas llevan además `Vary: Cookie`, porque dependen del modo elegido. El navegador revalida siempre (`304` si nada cambió), así que despublicar tiene efecto inmediato. El `304` repite las cabeceras propias de la respuesta: el navegador actualiza con ellas la copia guardada, y con la CSP base la página perdería los estilos y las imágenes. Este fallo se detectó en la prueba con navegador real y tiene una prueba de regresión.
 
 ## Ajustes del sitio (D-056)
 
 | Método y ruta | Cuerpo | Respuesta |
 | --- | --- | --- |
-| `GET /api/settings` | — | `200 { settings: { siteName, siteDescription } }` |
-| `PATCH /api/settings` | `siteName` (1–120 caracteres) y/o `siteDescription` (0–300); texto plano, sin caracteres de control | `200 { settings }` · `400 validation_failed` (también con campos desconocidos o sin ninguno) |
+| `GET /api/settings` | — | `200 { settings: { siteName, siteDescription, sitePalette }, palettes }`; `palettes` es el catálogo con sus colores (`id`, `name`, `custom`, `light`, `dark`) |
+| `PATCH /api/settings` | `siteName` (1–120 caracteres), `siteDescription` (0–300) y/o `sitePalette` (un id del catálogo, Bloque 12); texto plano, sin caracteres de control | `200 { settings, palettes }` · `400 validation_failed` (también con campos desconocidos o sin ninguno) |
 
 Solo `general_admin`. Cada cambio real se audita (`settings.update`) con el valor anterior y el nuevo; guardar los mismos valores no deja registro.
 

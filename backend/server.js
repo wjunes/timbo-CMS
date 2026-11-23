@@ -14,6 +14,7 @@ import { closeDatabase, openDatabase } from './database/connection.js';
 import { assertSchemaCurrent } from './database/migrator.js';
 import { createBackupScheduler } from './modules/backups/index.js';
 import { acquireLock, serverLockFile } from './modules/backups/lock.js';
+import { ThemeError, loadThemeCatalog } from './modules/themes/catalog.js';
 import { createLogger } from './utils/logger.js';
 
 let config;
@@ -21,6 +22,17 @@ try {
   config = loadConfig();
 } catch (err) {
   if (err instanceof ConfigError) {
+    process.stderr.write(`${err.message}\n`);
+    process.exit(1);
+  }
+  throw err;
+}
+
+// Paletas (Bloque 12, D-069): un THEMES_FILE inválido o sin contraste suficiente impide arrancar.
+try {
+  loadThemeCatalog(config.themesFile);
+} catch (err) {
+  if (err instanceof ThemeError) {
     process.stderr.write(`${err.message}\n`);
     process.exit(1);
   }

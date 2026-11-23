@@ -20,18 +20,31 @@ export function formatBytes(n) {
 
 const time = (iso) => `<time datetime="${e(isoDate(iso))}">${e(formatDate(iso))}</time>`;
 
+const MODE_OPTIONS = Object.freeze([['auto', null, 'Automático'], ['claro', 'light', 'Claro'], ['oscuro', 'dark', 'Oscuro']]);
+
+/**
+ * Selector de modo sin JavaScript (Bloque 12, D-070): enlaces que guardan la
+ * preferencia en una cookie y vuelven a la misma página.
+ */
+export function modeSwitch(mode, returnPath) {
+  const back = encodeURIComponent(returnPath);
+  return `<nav class="mode-switch" aria-label="Modo de color"><span>Modo:</span><ul>${MODE_OPTIONS.map(([param, value, label]) => `<li><a href="/_modo?m=${param}&amp;volver=${e(back)}" rel="nofollow"${value === mode ? ' aria-current="true"' : ''}>${label}</a></li>`).join('')}</ul></nav>`;
+}
+
 /**
  * @param {{ site: { name: string, description: string }, baseUrl: string, title: string|null, description?: string,
- *           path: string, nav: { path: string, name: string }[], current?: string, main: string, noindex?: boolean }} p
+ *           path: string, nav: { path: string, name: string }[], current?: string, main: string, noindex?: boolean,
+ *           mode?: 'light'|'dark'|null }} p
+ *   mode: preferencia del visitante (cookie); null sigue el modo del sistema.
  */
-export function layout({ site, baseUrl, title, description, path, nav, current, main, noindex = false }) {
+export function layout({ site, baseUrl, title, description, path, nav, current, main, noindex = false, mode = null }) {
   const fullTitle = title ? `${title} · ${site.name}` : site.name;
   const links = nav.map((s) => {
     const active = current === s.path || current?.startsWith(`${s.path}/`);
     return `<li><a href="${e(s.path)}"${active ? ' aria-current="page"' : ''}>${e(s.name)}</a></li>`;
   }).join('');
   return `<!doctype html>
-<html lang="es">
+<html lang="es"${mode ? ` data-mode="${e(mode)}"` : ''}>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -39,6 +52,7 @@ export function layout({ site, baseUrl, title, description, path, nav, current, 
 <meta name="description" content="${e(description || site.description)}">
 ${noindex ? '<meta name="robots" content="noindex">' : `<link rel="canonical" href="${e(baseUrl + path)}">`}
 <link rel="stylesheet" href="/assets/site.css">
+<link rel="stylesheet" href="/assets/palette.css">
 </head>
 <body>
 <a class="skip" href="#contenido">Saltar al contenido</a>
@@ -46,6 +60,7 @@ ${noindex ? '<meta name="robots" content="noindex">' : `<link rel="canonical" hr
 <div class="wrap">
 <a class="brand" href="/">${e(site.name)}</a>
 <nav class="site-nav" aria-label="Secciones"><ul>${links}</ul></nav>
+${modeSwitch(mode, path)}
 </div>
 </header>
 <main id="contenido" class="wrap" tabindex="-1">

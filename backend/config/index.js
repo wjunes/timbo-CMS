@@ -181,6 +181,7 @@ function parseEnum(key, value, allowed, issues) {
  *   media: { maxBytes: number },
  *   backup: { intervalHours: number, keep: number },
  *   rateLimit: { requestsPerMinute: number, writesPerMinute: number },
+ *   themesFile: string|null,
  * }>}
  */
 export function loadConfig(env = process.env) {
@@ -235,11 +236,15 @@ export function loadConfig(env = process.env) {
     'RATE_LIMIT_WRITES_PER_MINUTE', read(env, 'RATE_LIMIT_WRITES_PER_MINUTE') ?? DEFAULTS.RATE_LIMIT_WRITES_PER_MINUTE, 10, 10_000, issues,
   );
 
+  // Paletas exclusivas de la instalación (Bloque 12, D-069): archivo JSON opcional, fuera de frontend/.
+  const rawThemesFile = read(env, 'THEMES_FILE');
+  const themesFile = rawThemesFile === undefined ? null : parseDataPath('THEMES_FILE', rawThemesFile, issues);
+
   if (issues.length > 0) throw new ConfigError(issues);
 
   const session = Object.freeze({ ttlMs: ttlHours * 3_600_000, idleMs: idleMinutes * 60_000 });
   const media = Object.freeze({ maxBytes: mediaMaxBytes });
   const backup = Object.freeze({ intervalHours: backupIntervalHours, keep: backupKeep });
   const rateLimit = Object.freeze({ requestsPerMinute, writesPerMinute });
-  return Object.freeze({ env: nodeEnv, isProduction, host, port, baseUrl, logLevel, databasePath, storageDir, session, trustProxy, media, backup, rateLimit });
+  return Object.freeze({ env: nodeEnv, isProduction, host, port, baseUrl, logLevel, databasePath, storageDir, session, trustProxy, media, backup, rateLimit, themesFile });
 }

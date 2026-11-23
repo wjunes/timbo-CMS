@@ -21,7 +21,7 @@ describe('autenticación HTTP', () => {
     it('con credenciales correctas emite una cookie de sesión segura y devuelve el usuario y el token CSRF', async () => {
       const { res, body, setCookie } = await app.login('admin');
       assert.equal(res.status, 200);
-      assert.deepEqual(body.user, { id: admin.id, username: 'admin', displayName: 'Usuario admin', role: 'general_admin', mustChangePassword: false });
+      assert.deepEqual(body.user, { id: admin.id, username: 'admin', displayName: 'Usuario admin', role: 'general_admin', mustChangePassword: false, uiMode: 'auto' });
       assert.deepEqual(body.access, { scope: 'all' });
       assert.match(body.csrfToken, /^[A-Za-z0-9_-]{43}$/);
       assert.match(setCookie, /^cms_session=[A-Za-z0-9_-]{43}; Path=\/; SameSite=Strict; Max-Age=28800; HttpOnly$/);

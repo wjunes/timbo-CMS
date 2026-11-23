@@ -31,7 +31,7 @@ Cada medida de seguridad que exige la especificación, dónde está y qué la co
 | Sin puertas traseras | El `general_admin` pasa por las mismas comprobaciones; su cuenta solo se gestiona por línea de órdenes; no hay rutas ocultas | `routes.security.test.js` (inventario) |
 | Archivos: nombres aleatorios, fuera de lo público, sin BLOB, no se borran en uso | `modules/media`, triggers de las migraciones 006 y 008 | `tests/integration/media.test.js`, `maintenance.test.js` |
 
-## Implementado (Bloques 01–11)
+## Implementado (Bloques 01–12)
 
 | Medida | Dónde | Verificación |
 | --- | --- | --- |
@@ -102,8 +102,9 @@ Cada medida de seguridad que exige la especificación, dónde está y qué la co
 | Renderizado con tabla cerrada de nodos, escapado contextual, sin `style` ni manejadores, `rel=noopener` con `_blank` | `modules/contents/render.js` | `tests/unit/contents-render.test.js` |
 | Panel: CSP sin nada en línea, sin marcos ni objetos; archivos de una lista cerrada (sin path traversal ni ocultos); token CSRF solo en memoria, nada en `localStorage`; datos insertados como texto | `middleware/static.js`, `frontend/admin/` | `tests/security/media.security.test.js`, `tests/unit/static.test.js`; navegador real sin violaciones de CSP |
 | Sitio público: solo lo publicado (secciones activas con ancestros activos, versión publicada) y `404` idéntico al de lo inexistente; archivos públicos solo si los usa un contenido publicado y visible | `modules/public` | `tests/integration/public-site.test.js`, `tests/security/public.security.test.js` |
-| Sitio público sin JavaScript: plantillas del sistema con escapado contextual, CSP sin scripts (también en los `304`), sin cookies | `modules/public/views.js`, `index.js` | idem; navegador real sin violaciones de CSP |
+| Sitio público sin JavaScript: plantillas del sistema con escapado contextual, CSP sin scripts (también en los `304`); una sola cookie, de preferencia de modo (`HttpOnly`, `SameSite=Lax`, sin datos personales) | `modules/public/views.js`, `index.js` | idem; navegador real sin violaciones de CSP |
 | Rutas públicas validadas por segmentos (sin path traversal); la barra final y las redirecciones solo llevan a rutas propias (sin redirección abierta) | `modules/public/index.js` | `tests/security/public.security.test.js` |
+| Paletas: solo colores `#rrggbb` validados, nunca CSS libre; solo ids del catálogo en la API; contraste WCAG AA obligatorio (si no, el servidor no arranca); la vuelta del selector de modo solo admite páginas públicas (sin redirección abierta); el panel pinta las muestras sin atributos `style` | `modules/themes`, `modules/settings`, `modules/public/index.js` | `tests/unit/themes.test.js`, `tests/integration/themes.test.js`; navegador real sin violaciones de CSP |
 | Contenidos y subsecciones no comparten URL; redirecciones registradas por la base | migración 007 | `tests/integration/schema.test.js`, `sections.test.js` |
 | Auditoría inmodificable (sin rutas de escritura, triggers) y verificable: cadena de huellas SHA-256 con anclas en las copias | `modules/audit`, migración 008 | `tests/integration/audit.test.js`, `backups.test.js` |
 | Copias de seguridad coherentes (API de backup de SQLite), con manifiesto y huellas; verificación completa; rutas del manifiesto validadas; sin enlaces simbólicos | `modules/backups/service.js` | `tests/integration/backups.test.js`, `tests/security/maintenance.security.test.js` |

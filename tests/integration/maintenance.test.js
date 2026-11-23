@@ -126,11 +126,11 @@ describe('purga de archivos', () => {
 describe('configuración del sitio', () => {
   it('consulta y cambia el nombre y la descripción; el sitio público los muestra escapados', async () => {
     let r = await api.json('/api/settings');
-    assert.deepEqual(r.body.settings, { siteName: 'CMS-MULTISECCIÓN', siteDescription: 'Sitio institucional' });
+    assert.deepEqual(r.body.settings, { siteName: 'CMS-MULTISECCIÓN', siteDescription: 'Sitio institucional', sitePalette: 'azul' });
 
     r = await api.json('/api/settings', { method: 'PATCH', body: { siteName: '  Ayuntamiento <b>Sur</b>  ', siteDescription: '' } });
     assert.equal(r.status, 200);
-    assert.deepEqual(r.body.settings, { siteName: 'Ayuntamiento <b>Sur</b>', siteDescription: '' });
+    assert.deepEqual(r.body.settings, { siteName: 'Ayuntamiento <b>Sur</b>', siteDescription: '', sitePalette: 'azul' });
 
     const html = await (await app.request('/')).text();
     assert.ok(html.includes('Ayuntamiento &lt;b&gt;Sur&lt;/b&gt;'));

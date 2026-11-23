@@ -8,7 +8,7 @@ const PUBLIC_COLUMNS =
 /** @param {import('node:sqlite').DatabaseSync} db */
 export function createUserRepository(db) {
   const byUsername = db.prepare(
-    'SELECT id, username, display_name, password_hash, role, status, must_change_password FROM users WHERE username = ?',
+    'SELECT id, username, display_name, password_hash, role, status, must_change_password, ui_mode FROM users WHERE username = ?',
   );
   const byId = db.prepare(`SELECT ${PUBLIC_COLUMNS} FROM users WHERE id = ?`);
   const hashById = db.prepare('SELECT password_hash FROM users WHERE id = ?');
@@ -27,6 +27,7 @@ export function createUserRepository(db) {
   const setStatus = db.prepare(`UPDATE users SET status = ?, updated_at = ${NOW} WHERE id = ?`);
   const setDisplayName = db.prepare(`UPDATE users SET display_name = ?, updated_at = ${NOW} WHERE id = ?`);
   const setEmail = db.prepare(`UPDATE users SET email = ?, updated_at = ${NOW} WHERE id = ?`);
+  const setUiMode = db.prepare('UPDATE users SET ui_mode = ? WHERE id = ?');
 
   return Object.freeze({
     /** Búsqueda sin distinguir mayúsculas (COLLATE NOCASE en el esquema). Incluye el hash: solo para autenticación. */
@@ -45,6 +46,8 @@ export function createUserRepository(db) {
     /** Nueva contraseña. mustChange=true para contraseñas temporales fijadas por el administrador. */
     setPassword: (userId, passwordHash, { mustChange }) => setPassword.run(passwordHash, mustChange ? 1 : 0, userId).changes > 0,
     setStatus: (userId, status) => setStatus.run(status, userId).changes > 0,
+    /** Modo de color del panel ('auto', 'light' o 'dark'; Bloque 12). */
+    setUiMode: (userId, mode) => setUiMode.run(mode, userId).changes > 0,
     updateProfile(userId, { displayName, email }) {
       if (displayName !== undefined) setDisplayName.run(displayName, userId);
       if (email !== undefined) setEmail.run(email, userId);

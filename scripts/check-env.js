@@ -7,6 +7,7 @@
  */
 import fs from 'node:fs';
 import { ConfigError, MEMORY_DB, loadConfig } from '../backend/config/index.js';
+import { ThemeError, loadThemeCatalog } from '../backend/modules/themes/catalog.js';
 
 // Importación dinámica: si node:sqlite no existe, la comprobación correspondiente lo
 // informa en lugar de que el script falle al cargar.
@@ -97,6 +98,24 @@ check('Base de datos', () => {
     return `${c.databasePath} (esquema al día)`;
   } finally {
     closeDatabase(db);
+  }
+});
+
+// Paletas (Bloque 12): las de serie y las de THEMES_FILE, con su contraste.
+check('Paletas de colores', () => {
+  let c;
+  try {
+    c = loadConfig();
+  } catch {
+    throw new Error('configuración inválida (ver arriba)');
+  }
+  try {
+    const catalog = loadThemeCatalog(c.themesFile);
+    const custom = catalog.list.filter((p) => p.custom).length;
+    return `${catalog.list.length} paletas${custom ? ` (${custom} de ${c.themesFile})` : ''}, contraste AA comprobado`;
+  } catch (err) {
+    if (err instanceof ThemeError) throw new Error(err.issues.join('; '));
+    throw err;
   }
 });
 

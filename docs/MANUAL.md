@@ -36,6 +36,7 @@ Una sección asignada sin ningún permiso solo se puede consultar.
 - **Contraseña temporal:** la primera vez, o cuando la administración general le asigne una nueva, el panel le obliga a cambiarla antes de continuar. La nueva necesita al menos 12 caracteres y no puede contener su nombre de usuario.
 - **Cambiar la contraseña:** en **Contraseña**. Al cambiarla se cierran sus otras sesiones abiertas.
 - **Cierre automático:** la sesión se cierra tras 30 minutos de inactividad o 8 horas en total (valores por defecto). Use **Salir** al terminar, sobre todo en equipos compartidos.
+- **Modo claro u oscuro del panel:** en la barra superior, **Modo: Automático / Claro / Oscuro**. Automático sigue el de su equipo. Se guarda en su perfil, así que se mantiene en cualquier equipo, y no afecta a nadie más ni al sitio público.
 
 ## Secciones
 
@@ -157,10 +158,12 @@ La cuenta de administración general no se gestiona desde el panel. Si se pierde
 
 | Pestaña | Uso |
 | --- | --- |
-| **Configuración** | Nombre y descripción del sitio, en texto plano |
+| **Configuración** | Nombre y descripción del sitio, en texto plano, y la **paleta de colores**. Cada paleta muestra cómo se ve en modo claro y en oscuro. Las marcadas «Exclusiva» son las preparadas para su institución. Al pulsar **Guardar** el sitio cambia de colores al instante. |
 | **Auditoría** | Registro de todas las operaciones importantes: accesos, cambios, publicaciones, copias… Se filtra por fecha, acción (por ejemplo `auth.login`, o `backup.` para todas las de copias), resultado y autor. **Verificar la integridad** comprueba que nadie lo ha alterado. Es de solo lectura. |
 | **Copias de seguridad** | **Crear copia ahora**, **Verificar** y **Eliminar**. Las automáticas se hacen solas (por defecto cada 24 h; se conservan 14). La restauración la hace la administración técnica, con el servidor detenido (ver [BACKUPS.md](BACKUPS.md)). |
 | **Purga de archivos** | Borra definitivamente del servidor los archivos eliminados que nada usa, y los restos de subidas interrumpidas. Primero muestra la lista y después pide confirmación. Las copias anteriores los conservan. |
+
+**Lo que ve el visitante.** En la cabecera del sitio público, **Modo: Automático · Claro · Oscuro**. Cada visitante elige el suyo, y el navegador lo recuerda. Sin elegir, se usa el de su dispositivo. La paleta la decide la administración general; el visitante solo cambia entre claro y oscuro.
 
 ## Mensajes frecuentes
 

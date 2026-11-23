@@ -24,9 +24,10 @@ Todas las respuestas son JSON con `Cache-Control: no-store`. Los errores son gen
 | `POST /api/auth/login` | Mismo origen; cuerpo `application/json` `{ username, password }` (≤ 4 KiB) | `200 { user, access, csrfToken, expiresAt }` y cookie de sesión · `400` · `401 invalid_credentials` · `403 forbidden_origin` · `413` · `415` · `429 too_many_attempts` (`Retry-After`) · `503 service_busy` |
 | `GET /api/auth/session` | Sesión | `200 { user, access, csrfToken, expiresAt }` · `401 unauthenticated` (borra la cookie si no es válida) |
 | `POST /api/auth/logout` | Mismo origen, sesión y `X-CSRF-Token` | `204` y borra la cookie · `401` · `403 invalid_csrf_token` |
+| `PUT /api/auth/preferences` | Mismo origen, sesión, `X-CSRF-Token`; `{ uiMode: "auto" | "light" | "dark" }` | `200 { user }` · `400 validation_failed` · `403 password_change_required` (modo del panel, Bloque 12, ver [THEMES.md](THEMES.md#modo-del-panel)) |
 | `POST /api/auth/password` | Mismo origen, sesión, `X-CSRF-Token`; `{ currentPassword, newPassword }` | `200 { status, revokedCount }` · `400 validation_failed` (`policy`) · `403 invalid_current_password` · `429` (Bloque 04, ver [USERS.md](USERS.md)) |
 
-`user` = `{ id, username, displayName, role, mustChangePassword }`. `access` = `{ scope: "all" }` para el `general_admin`, o `{ scope: "sections", sections: [{ id, slug, name, status, assignedAt, permissions }] }` para un administrador de sección. Es informativo para la interfaz: cada operación se vuelve a autorizar en el backend.
+`user` = `{ id, username, displayName, role, mustChangePassword, uiMode }`. `access` = `{ scope: "all" }` para el `general_admin`, o `{ scope: "sections", sections: [{ id, slug, name, status, assignedAt, permissions }] }` para un administrador de sección. Es informativo para la interfaz: cada operación se vuelve a autorizar en el backend.
 
 Con `mustChangePassword: true` solo se pueden usar `session`, `password` y `logout`.
 

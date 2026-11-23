@@ -7,6 +7,8 @@
  *   /<ruta-de-sección>/<slug>  contenido
  *   /media/<id>                archivo de un contenido publicado
  *   /sitemap.xml, /robots.txt, /favicon.ico (204)
+ *   /assets/palette.css        colores de la paleta elegida (Bloque 12)
+ *   /_modo?m=…&volver=…        preferencia de modo claro/oscuro del visitante (Bloque 12)
  *
  * Visibilidad (lo único que se lee): secciones `active` con todos sus
  * ancestros `active`; contenidos `published` de esas secciones, siempre con su
@@ -18,6 +20,8 @@
  * navegador revalida siempre, y despublicar tiene efecto inmediato.
  */
 import { createHash } from 'node:crypto';
+import { parseCookies, serializeCookie } from '../../middleware/http.js';
+import { isReservedSlug } from '../sections/slug.js';
 import { MEDIA_TYPES } from '../media/inspect.js';
 import { createMediaStorage } from '../media/storage.js';
 import { contentDisposition } from '../media/index.js';
@@ -39,6 +43,25 @@ const HOME_TYPES = new Set(['news', 'articles']);
 const DATED = new Set(['list', 'grid', 'document_list']);
 const SITE_DEFAULTS = Object.freeze({ name: 'CMS-MULTISECCIÓN', description: 'Sitio institucional' });
 
+/**
+ * Modo de color elegido por el visitante (Bloque 12, D-070). Sin cookie se sigue
+ * el del sistema. La cookie solo guarda esa preferencia: no identifica a nadie.
+ */
+export const MODE_COOKIE = 'site_mode';
+export const MODE_PATH = '/_modo';
+export const PALETTE_CSS_PATH = '/assets/palette.css';
+const MODE_PARAMS = Object.freeze({ auto: null, claro: 'light', oscuro: 'dark' });
+const MODE_COOKIE_MAX_AGE = 365 * 24 * 3600;
+/**
+ * Vuelta tras elegir el modo: solo rutas del propio sitio con la forma de una
+ * página pública (slugs y ?pagina=N). Cualquier otra cosa vuelve a la portada,
+ * así que el enlace no puede llevar a otro dominio («//otro», «/\otro», esquemas…).
+ */
+const RETURN_PATH = /^\/(?:[a-z0-9]+(?:-[a-z0-9]+)*(?:\/[a-z0-9]+(?:-[a-z0-9]+)*){0,3})?(?:\?pagina=[1-9][0-9]{0,4})?$/;
+export const safeReturnPath = (value) => (typeof value === 'string' && RETURN_PATH.test(value)
+  // Tampoco al panel ni a la API (slugs reservados): la vuelta es siempre a una página pública.
+  && !isReservedSlug(value.slice(1).split(/[/?]/)[0], true) ? value : '/');
+
 const etagOf = (text) => `W/"${createHash('sha256').update(text).digest('base64url').slice(0, 27)}"`;
 
 /** ¿El cliente ya tiene esta versión? (If-None-Match con el ETag) */
@@ -51,7 +74,8 @@ function notModified(req, etag) {
  * @param {{ db: import('node:sqlite').DatabaseSync, config: { baseUrl: string, storageDir: string },
  *           logger: { error: Function } }} deps
  */
-export function createPublicSite({ db, config, logger }) {
+export function createPublicSite({ db, config, logger, themes }) {
+  if (!themes) throw new TypeError('createPublicSite requiere el catálogo de paletas');
   const repo = createPublicRepository(db);
   const storage = createMediaStorage(config.storageDir);
 
@@ -78,12 +102,19 @@ export function createPublicSite({ db, config, logger }) {
     description: repo.setting('site.description', SITE_DEFAULTS.description),
   });
 
+  const paletteId = () => repo.setting('site.palette', themes.defaultId);
+  const modeOf = (req) => {
+    const value = parseCookies(req.headers.cookie).get(MODE_COOKIE);
+    return value === 'light' || value === 'dark' ? value : null;
+  };
+
   function html(req, status, { title, description, path, current, main, noindex }, tree) {
     const text = views.layout({
-      site: site(), baseUrl: config.baseUrl, title, description, path, current, main, noindex,
+      site: site(), baseUrl: config.baseUrl, title, description, path, current, main, noindex, mode: modeOf(req),
       nav: tree.roots.filter((s) => s.visible).map((s) => ({ path: s.path, name: s.name })),
     });
-    return respond(req, status, text, 'text/html; charset=utf-8', { 'Content-Security-Policy': PUBLIC_CSP });
+    // La página depende de la cookie de modo: una caché intermedia no debe mezclar versiones.
+    return respond(req, status, text, 'text/html; charset=utf-8', { 'Content-Security-Policy': PUBLIC_CSP, Vary: 'Cookie' });
   }
 
   function respond(req, status, text, type, extra = {}) {
@@ -269,8 +300,30 @@ export function createPublicSite({ db, config, logger }) {
   }
 
   function robotsTxt(ctx) {
-    const text = `User-agent: *\nDisallow: /admin/\nDisallow: /api/\nSitemap: ${config.baseUrl}/sitemap.xml\n`;
+    const text = `User-agent: *\nDisallow: /admin/\nDisallow: /api/\nDisallow: ${MODE_PATH}\nSitemap: ${config.baseUrl}/sitemap.xml\n`;
     return respond(ctx.req, 200, text, 'text/plain; charset=utf-8');
+  }
+
+  /** Colores de la paleta elegida por la administración general (generados, nunca CSS libre). */
+  function paletteCss(ctx) {
+    return respond(ctx.req, 200, themes.css(paletteId()), 'text/css; charset=utf-8', { 'Content-Security-Policy': PUBLIC_CSP });
+  }
+
+  /**
+   * Guarda el modo del visitante y vuelve a la página. Es un GET porque el sitio
+   * no tiene JavaScript ni formularios (CSP form-action 'none'); solo cambia una
+   * preferencia de presentación del propio navegador, sin efecto en el servidor.
+   */
+  function setMode(ctx) {
+    const url = new URL(ctx.req.url, 'http://localhost');
+    const param = url.searchParams.get('m');
+    const headers = { Location: safeReturnPath(url.searchParams.get('volver')), 'Cache-Control': 'no-store' };
+    if (param === null || !Object.hasOwn(MODE_PARAMS, param)) return { status: 303, headers };
+    const mode = MODE_PARAMS[param];
+    const secure = config.baseUrl.startsWith('https:');
+    // Lax: la preferencia también se aplica al llegar desde un enlace de otro sitio.
+    const cookie = serializeCookie(MODE_COOKIE, mode ?? '', { maxAge: mode ? MODE_COOKIE_MAX_AGE : 0, secure, sameSite: 'Lax' });
+    return { status: 303, headers, cookies: [cookie] };
   }
 
   const get = (path, handler) => [{ method: 'GET', path, handler }, { method: 'HEAD', path, handler }];
@@ -282,6 +335,8 @@ export function createPublicSite({ db, config, logger }) {
       ...get('/media/:id', media),
       ...get('/sitemap.xml', sitemapXml),
       ...get('/robots.txt', robotsTxt),
+      ...get(PALETTE_CSS_PATH, paletteCss),
+      { method: 'GET', path: MODE_PATH, handler: setMode },
       // Sin icono propio todavía: 204 evita un 404 en cada visita (D-057).
       ...get('/favicon.ico', () => ({ status: 204, headers: { 'Cache-Control': 'public, max-age=86400' } })),
     ],

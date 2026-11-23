@@ -19,16 +19,46 @@ import { isGeneralAdmin, navigate, state } from './state.js';
 
 const root = document.getElementById('app');
 
+/**
+ * Modo de color del panel (Bloque 12, D-071): 'light' o 'dark' fijan el atributo
+ * data-mode de <html>; 'auto' lo quita y se sigue el modo del sistema.
+ */
+function applyMode(mode) {
+  if (mode === 'light' || mode === 'dark') document.documentElement.dataset.mode = mode;
+  else delete document.documentElement.dataset.mode;
+}
+
 function applySession(data) {
   state.user = data.user;
   state.access = data.access;
   setCsrfToken(data.csrfToken);
+  applyMode(data.user.uiMode);
 }
 
 function clearSession() {
   state.user = null;
   state.access = null;
   setCsrfToken(null);
+  applyMode('auto');
+}
+
+const UI_MODES = [['auto', 'Automático'], ['light', 'Claro'], ['dark', 'Oscuro']];
+
+function modeSelect() {
+  const select = h('select', { class: 'mode', 'aria-label': 'Modo de color del panel', onChange: async () => {
+    const previous = state.user.uiMode;
+    applyMode(select.value);
+    try {
+      const { user } = await api('/api/auth/preferences', { method: 'PUT', body: { uiMode: select.value } });
+      state.user = { ...state.user, uiMode: user.uiMode };
+    } catch {
+      // No se pudo guardar: se vuelve al modo anterior para no mostrar algo que no se conservará.
+      select.value = previous;
+      applyMode(previous);
+    }
+  } }, UI_MODES.map(([value, label]) => h('option', { value, text: `Modo: ${label}` })));
+  select.value = state.user.uiMode ?? 'auto';
+  return select;
 }
 
 onAuthProblem((err) => {
@@ -49,6 +79,7 @@ function layout(...content) {
     isGeneralAdmin() ? h('a', { href: '#/users', text: 'Usuarios' }) : null,
     isGeneralAdmin() ? h('a', { href: '#/system/settings', text: 'Sistema' }) : null,
     h('a', { href: '#/password', text: 'Contraseña' }),
+    modeSelect(),
     h('button', { type: 'button', class: 'link', text: 'Salir', onClick: logout }));
   return [
     h('header', { class: 'topbar' },

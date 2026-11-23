@@ -1,0 +1,30 @@
+{
+  "palettes": [
+    {
+      "id": "ejemplo-turquesa",
+      "name": "Ejemplo turquesa",
+      "light": {
+        "bg": "#f8fbfb",
+        "surface": "#ffffff",
+        "text": "#16232a",
+        "muted": "#4f5f66",
+        "border": "#d6e2e4",
+        "accent": "#0b6b74",
+        "accentStrong": "#08525a",
+        "headerBg": "#0d3b42",
+        "headerText": "#f1f8f9"
+      },
+      "dark": {
+        "bg": "#121a1c",
+        "surface": "#192326",
+        "text": "#e2eced",
+        "muted": "#9fb1b5",
+        "border": "#2f3d41",
+        "accent": "#5fd0db",
+        "accentStrong": "#97e2ea",
+        "headerBg": "#0a1f23",
+        "headerText": "#e2eced"
+      }
+    }
+  ]
+}

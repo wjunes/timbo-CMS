@@ -16,6 +16,8 @@ import { createSessionStore, csrfTokenFor } from './sessions.js';
 const WINDOW_MS = 15 * 60_000;
 /** Límites de intentos FALLIDOS por ventana de 15 minutos (D-019). */
 export const LOGIN_LIMITS = Object.freeze({ perIp: 30, perUserAndIp: 5, perUser: 50 });
+/** Modos de color del panel (columna users.ui_mode, migración 009). */
+export const UI_MODES = Object.freeze(['auto', 'light', 'dark']);
 
 export function sessionCookieName(config) {
   // __Host- exige Secure, Path=/ y sin Domain: impide que un subdominio la sobrescriba.
@@ -64,6 +66,7 @@ export function createAuth({ db, config, logger, clock = Date.now, passwordHashe
     displayName: u.displayName ?? u.display_name,
     role: u.role,
     mustChangePassword: u.mustChangePassword ?? u.must_change_password === 1,
+    uiMode: u.uiMode ?? u.ui_mode,
   });
 
   /**
@@ -189,6 +192,17 @@ export function createAuth({ db, config, logger, clock = Date.now, passwordHashe
     return { status: 200, body: { status: 'password_changed', revokedCount } };
   }
 
+  /**
+   * Preferencias propias de presentación del panel (Bloque 12, D-071). Solo afectan
+   * a quien las cambia y no conceden nada, por eso no se auditan.
+   */
+  async function updatePreferences(ctx) {
+    const { uiMode } = validate(await readJsonBody(ctx.req, { limit: 1024 }), { uiMode: rules.oneOf(UI_MODES) });
+    const { user } = ctx.auth.session;
+    users.setUiMode(user.id, uiMode);
+    return { status: 200, body: { user: publicUser({ ...user, uiMode }) } };
+  }
+
   return Object.freeze({
     sessionFromRequest,
     hasSessionCookie: (req) => tokenFromRequest(req) !== undefined,
@@ -201,6 +215,7 @@ export function createAuth({ db, config, logger, clock = Date.now, passwordHashe
       { method: 'POST', path: '/api/auth/logout', handler: logout, auth: true, allowDuringPasswordChange: true },
       { method: 'GET', path: '/api/auth/session', handler: current, auth: true, allowDuringPasswordChange: true },
       { method: 'POST', path: '/api/auth/password', handler: changePassword, auth: true, allowDuringPasswordChange: true },
+      { method: 'PUT', path: '/api/auth/preferences', handler: updatePreferences, auth: true },
     ],
   });
 }

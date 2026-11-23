@@ -310,7 +310,7 @@ describe('sitio público: archivos, sitemap y caché', () => {
     assert.match(xml, /<loc>http:\/\/127\.0\.0\.1:3000\/noticias<\/loc>/);
     assert.doesNotMatch(xml, /oculto|preguntas-frecuentes/);
     const robots = await (await app.request('/robots.txt')).text();
-    assert.equal(robots, 'User-agent: *\nDisallow: /admin/\nDisallow: /api/\nSitemap: http://127.0.0.1:3000/sitemap.xml\n');
+    assert.equal(robots, 'User-agent: *\nDisallow: /admin/\nDisallow: /api/\nDisallow: /_modo\nSitemap: http://127.0.0.1:3000/sitemap.xml\n');
     assert.equal((await app.request('/favicon.ico')).status, 204);
   });
 

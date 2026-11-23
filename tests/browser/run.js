@@ -179,6 +179,34 @@ try {
   await visit(`${BASE}/noticias/${news.slug}`);
   check('sitio: la revalidación (304) mantiene estilos e imágenes', await evaluate('return [...document.images].every((i) => i.naturalWidth > 0) && document.styleSheets.length > 0'));
 
+  // --- Bloque 12: modo claro/oscuro del visitante, sin JavaScript --------------------
+  const bodyBg = () => evaluate('return getComputedStyle(document.body).backgroundColor');
+  const LIGHT_BG = 'rgb(251, 251, 250)'; // paleta «azul», modo claro
+  const DARK_BG = 'rgb(21, 24, 28)'; // paleta «azul», modo oscuro
+  check('modo: sin preferencia y con el sistema en claro, el sitio es claro', (await bodyBg()) === LIGHT_BG);
+  await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: 'dark' }] });
+  check('modo: sin preferencia, sigue al sistema en oscuro', (await bodyBg()) === DARK_BG);
+  // Pulsar «Claro»: el enlace guarda la cookie y vuelve a la misma página.
+  await evaluate("__t.byText('.mode-switch a', 'Claro').click()");
+  await sleep(600);
+  check('modo: «Claro» vuelve a la misma página', await evaluate(`return location.pathname === ${JSON.stringify(`/noticias/${news.slug}`)}`));
+  check('modo: «Claro» se impone al sistema oscuro', (await bodyBg()) === LIGHT_BG && (await evaluate('return document.documentElement.dataset.mode')) === 'light');
+  await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: 'light' }] });
+  await evaluate("__t.byText('.mode-switch a', 'Oscuro').click()");
+  await sleep(600);
+  check('modo: «Oscuro» se impone al sistema claro y se marca como actual', (await bodyBg()) === DARK_BG
+    && (await evaluate("return __t.byText('.mode-switch a', 'Oscuro').getAttribute('aria-current')")) === 'true');
+  await visit(`${BASE}/`);
+  check('modo: la preferencia se conserva en otras páginas', (await bodyBg()) === DARK_BG);
+  await mobile();
+  await visit(`${BASE}/noticias/${news.slug}`);
+  check('modo oscuro (móvil): sin desbordamiento horizontal', !(await overflowing()));
+  await screenshot('sitio-contenido-oscuro-móvil');
+  await desktop();
+  await evaluate("__t.byText('.mode-switch a', 'Automático').click()");
+  await sleep(600);
+  check('modo: «Automático» vuelve a seguir al sistema', (await bodyBg()) === LIGHT_BG && !(await evaluate('return "mode" in document.documentElement.dataset')));
+
   // --- Panel ----------------------------------------------------------------------
   await visit(`${BASE}/admin/`);
   await evaluate(`__t.fill(document.querySelector('[name=username]'), 'admin'); __t.fill(document.querySelector('[name=password]'), ${JSON.stringify(PASS)}); document.querySelector('form').requestSubmit();`);
@@ -211,6 +239,22 @@ try {
   await evaluate("__t.fill(__t.label('Nombre del sitio'), 'Portal de prueba en navegador'); document.querySelector('form').requestSubmit();");
   await evaluate("await __t.wait(() => document.querySelector('main').innerText.includes('Configuración guardada'))");
   check('panel: el sitio público muestra el nuevo nombre', (await (await fetch(`${BASE}/`)).text()).includes('Portal de prueba en navegador'));
+
+  // Bloque 12: paleta del sitio y modo del panel.
+  check('panel: muestra las paletas con sus muestras', await evaluate("return document.querySelectorAll('label.palette').length === 4 && document.querySelectorAll('.swatch').length === 8"));
+  await evaluate("document.querySelector('input[name=palette][value=verde]').click(); document.querySelector('form').requestSubmit();");
+  await evaluate("await __t.wait(() => document.querySelectorAll('.notice-ok').length)");
+  check('panel: la paleta elegida se aplica al sitio', (await (await fetch(`${BASE}/assets/palette.css`)).text()).includes('Paleta «verde»'));
+  await screenshot('panel-configuración-paletas');
+  await evaluate("__t.fill(document.querySelector('select.mode'), 'dark')");
+  await sleep(500);
+  const PANEL_DARK_BG = 'rgb(20, 24, 30)';
+  check('panel: modo oscuro aplicado', (await bodyBg()) === PANEL_DARK_BG);
+  await visit(`${BASE}/admin/#/system/settings`);
+  await evaluate("await __t.wait(() => document.querySelector('select.mode'))");
+  check('panel: el modo oscuro se conserva al recargar (perfil del usuario)', (await bodyBg()) === PANEL_DARK_BG
+    && (await evaluate("return document.querySelector('select.mode').value")) === 'dark');
+  await screenshot('panel-configuración-oscuro');
 
   await go('#/system/backups');
   await evaluate("__t.byText('button', 'Crear copia ahora').click()");

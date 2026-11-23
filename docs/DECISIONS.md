@@ -433,3 +433,47 @@ La especificación pide no crear archivos ni módulos vacíos solo para completa
   - cobertura (`npm run test:coverage`);
   - una medida de rendimiento (`npm run bench`).
 - **Motivo:** cada bloque se probó por separado; faltaba comprobar el conjunto. Las pruebas en navegador de los bloques 08–10 estaban fuera del repositorio y nadie más podía repetirlas.
+
+## D-068 · Paleta del sitio elegida de un catálogo cerrado (Bloque 12)
+
+- **Decisión:**
+  - la administración general elige la paleta del sitio público entre las del catálogo;
+  - una paleta son nueve colores `#rrggbb` por modo, claro y oscuro, nunca CSS;
+  - el servidor genera `/assets/palette.css` con esos colores, y `site.css` deja de definir colores.
+- **Motivo:**
+  - personalizar el aspecto sin permitir que un administrador introduzca código o estilos arbitrarios;
+  - un catálogo cerrado se puede revisar y probar entero.
+- **Alternativas descartadas:**
+  - **Colores libres desde el panel:** permitirían combinaciones ilegibles.
+  - **CSS editable:** abre la inyección de estilos.
+  - **Todas las paletas en `site.css` con selectores:** no admite las paletas de cliente sin tocar el código.
+
+## D-069 · Paletas exclusivas por instalación y contraste obligatorio (Bloque 12)
+
+- **Decisión:**
+  - **Paletas de cliente:** los colores institucionales se definen en un archivo JSON propio de cada instalación (`THEMES_FILE`), fuera del repositorio común. Se añaden al catálogo como «exclusivas».
+  - **Contraste:** toda paleta, también las de serie, debe alcanzar 4,5:1 (WCAG AA) en los pares de texto y enlaces de los dos modos.
+  - **Validación:** si una paleta no es válida o no cumple el contraste, el servidor no arranca. `npm run check` lo comprueba antes.
+- **Motivo:** la personalización por cliente es un servicio a medida. Así ningún cliente ve las paletas de otro, personalizar no exige cambiar ni desplegar código, y la accesibilidad no depende de que alguien la revise a mano.
+
+## D-070 · Modo claro/oscuro del visitante sin JavaScript (Bloque 12)
+
+- **Decisión:**
+  - **Selector:** enlaces en la cabecera a `/_modo`, que guarda la preferencia en la cookie `site_mode` y redirige (`303`) a la página.
+  - **Vuelta:** solo se aceptan rutas con la forma de una página pública; cualquier otra vuelve a la portada.
+  - **Sin preferencia:** se sigue el modo del sistema.
+  - **Caché:** las páginas llevan `Vary: Cookie`, y el ETag cambia con el modo.
+- **Motivo:**
+  - el sitio público no tiene JavaScript, y la CSP prohíbe los formularios (`form-action 'none'`);
+  - una cookie de preferencia es lo mínimo que permite recordar la elección.
+  - **Ruta:** `/_modo` no puede coincidir con el slug de ninguna sección, porque el guion bajo no es válido en un slug.
+- **Consecuencia:** el sitio público deja de ser «sin cookies». La única es esta preferencia, pedida por el visitante, que no le identifica (ver [THEMES.md](THEMES.md)).
+
+## D-071 · Modo del panel por usuario (Bloque 12)
+
+- **Decisión:**
+  - **Preferencia:** cada administrador elige claro, oscuro o automático. Se guarda en `users.ui_mode` (migración 009) mediante `PUT /api/auth/preferences`, sin auditoría.
+  - **Colores:** el panel conserva colores neutros, independientes de la paleta del sitio. `admin.css` pasa a definir todos sus colores como variables, con variante clara y oscura y el contraste AA comprobado.
+- **Motivo:**
+  - la preferencia es personal y debe seguir al usuario entre equipos, sin usar el almacenamiento del navegador;
+  - un panel neutro se lee igual sea cual sea la paleta del sitio.

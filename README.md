@@ -70,6 +70,7 @@ Variables admitidas (ver [.env.example](.env.example)):
 | `BACKUP_KEEP` | `14` | Copias automáticas que se conservan (1–365). Las manuales no se borran solas. |
 | `RATE_LIMIT_REQUESTS_PER_MINUTE` | `1200` | Peticiones por minuto e IP (60–100000). |
 | `RATE_LIMIT_WRITES_PER_MINUTE` | `120` | Escrituras por minuto e IP (10–10000). |
+| `THEMES_FILE` | — | Archivo JSON con las paletas exclusivas de la instalación, fuera de `frontend/` (ver [THEMES.md](docs/THEMES.md)). |
 | `TRUST_PROXY` | `false` | `true` solo detrás de un proxy inverso propio que sobrescriba `X-Forwarded-For`. |
 
 Si la configuración es inválida, el servidor no arranca e informa de todos los problemas.
@@ -86,6 +87,7 @@ Si la configuración es inválida, el servidor no arranca e informa de todos los
 - [Flujos editoriales y aprobaciones](docs/EDITORIAL.md)
 - [Editor, multimedia y panel](docs/MEDIA.md)
 - [Sitio público](docs/PUBLIC.md)
+- [Paletas de color y modo claro/oscuro](docs/THEMES.md)
 - [Auditoría](docs/AUDIT.md)
 - [Copias de seguridad y restauración](docs/BACKUPS.md)
 - [Despliegue](docs/DEPLOYMENT.md)

@@ -40,6 +40,7 @@ import { createRateLimiter } from './modules/auth/rate-limiter.js';
 import { createPermissionsModule } from './modules/permissions/index.js';
 import { createSectionsModule } from './modules/sections/index.js';
 import { createSettingsModule } from './modules/settings/index.js';
+import { loadThemeCatalog } from './modules/themes/catalog.js';
 import { createUsersModule } from './modules/users/index.js';
 
 /**
@@ -116,6 +117,8 @@ export const PUBLIC_ASSETS_ROOT = path.join(PROJECT_ROOT, 'frontend', 'public', 
 
 export function createServer({ config, logger, db, clock = Date.now, passwordHasher, adminRoot = ADMIN_ROOT }) {
   if (!db) throw new TypeError('createServer requiere una conexión a la base de datos');
+  // Paletas de serie y, si hay THEMES_FILE, las de la instalación. Una paleta inválida impide arrancar (D-069).
+  const themes = loadThemeCatalog(config.themesFile);
   const securityHeaders = baseSecurityHeaders(config);
   const expectedOrigin = new URL(config.baseUrl).origin;
   const auth = createAuth({ db, config, logger, clock, passwordHasher });
@@ -127,12 +130,12 @@ export function createServer({ config, logger, db, clock = Date.now, passwordHas
   const mediaModule = createMediaModule({ db, config, logger });
   const adminSite = createStaticSite({ root: adminRoot, prefix: '/admin' });
   const publicAssets = createStaticSite({ root: PUBLIC_ASSETS_ROOT, prefix: '/assets', csp: PUBLIC_CSP });
-  const publicSite = createPublicSite({ db, config, logger });
+  const publicSite = createPublicSite({ db, config, logger, themes });
   const audit = createAuditLog(db);
   const backupService = createBackupService({ db, storageDir: config.storageDir, logger, clock });
   const backupsModule = createBackupsModule({ service: backupService, schedule: config.backup });
   const auditModule = createAuditModule({ db, anchors: backupService.anchors });
-  const settingsModule = createSettingsModule({ db });
+  const settingsModule = createSettingsModule({ db, themes });
   const mediaPurge = createMediaPurge({ db, config, logger, clock });
 
   // Definición de ruta: { method, path, handler, auth?, role?, allowDuringPasswordChange? }
@@ -178,9 +181,10 @@ export function createServer({ config, logger, db, clock = Date.now, passwordHas
     }
 
     if (adminSite.owns(pathname)) return adminSite.serve(req, pathname);
-    if (publicAssets.owns(pathname)) return publicAssets.serve(req, pathname);
-
     const matched = router.match(pathname);
+    // Bajo /assets solo hay archivos estáticos, salvo la hoja de la paleta (ruta propia, Bloque 12).
+    if (!matched && publicAssets.owns(pathname)) return publicAssets.serve(req, pathname);
+
     if (!matched) {
       if (!publicSite.owns(pathname)) return errorResponse(404, 'not_found');
       if (req.method !== 'GET' && req.method !== 'HEAD') return errorResponse(405, 'method_not_allowed', { Allow: 'GET, HEAD' });

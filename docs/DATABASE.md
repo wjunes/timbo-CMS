@@ -36,7 +36,7 @@ unidades de red, y las carpetas sincronizadas (OneDrive, Dropbox…) pueden corr
 - Las migraciones no pueden contener `BEGIN`/`COMMIT`/`ROLLBACK`/`SAVEPOINT` propios.
 - **El servidor no migra al arrancar:** si hay migraciones pendientes o inconsistentes, no arranca. Hay que ejecutar `npm run db:migrate` explícitamente.
 
-## Modelo (migraciones 001–008)
+## Modelo (migraciones 001–009)
 
 Todas las tablas son `STRICT`. Las fechas se guardan como TEXT ISO-8601 UTC con milisegundos. Los booleanos son `INTEGER` 0/1.
 
@@ -213,6 +213,10 @@ Añade dos tablas y sus triggers; no modifica las existentes.
 | Un archivo purgado no se vuelve a usar en una versión | `media_not_available` |
 
 Ver [AUDIT.md](AUDIT.md) y [BACKUPS.md](BACKUPS.md).
+
+### Migración 009 (Bloque 12)
+
+Añade `users.ui_mode`: el modo de color del panel de cada administrador (`auto`, `light` o `dark`; por defecto `auto`), con `CHECK`. No crea tablas. La paleta del sitio se guarda en `settings` (`site.palette`), sin migración. Ver [THEMES.md](THEMES.md).
 
 ## Concurrencia
 

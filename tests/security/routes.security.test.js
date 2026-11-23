@@ -13,6 +13,8 @@ const PUBLIC = [
   'GET /health', 'HEAD /health', 'POST /api/auth/login',
   'GET /media/:id', 'HEAD /media/:id', 'GET /sitemap.xml', 'HEAD /sitemap.xml',
   'GET /robots.txt', 'HEAD /robots.txt', 'GET /favicon.ico', 'HEAD /favicon.ico',
+  // Bloque 12: hoja de la paleta y preferencia de modo del visitante (solo una cookie y una redirección validada).
+  'GET /assets/palette.css', 'HEAD /assets/palette.css', 'GET /_modo',
 ];
 
 /** Rutas admitidas con contraseña temporal pendiente. */
@@ -23,7 +25,7 @@ const DURING_PASSWORD_CHANGE = ['GET /api/auth/session', 'POST /api/auth/logout'
  * y permiso (probado en authorization.security.test.js y en cada módulo).
  */
 const SECTION_SCOPED = [
-  'POST /api/auth/logout', 'POST /api/auth/password', 'GET /api/auth/session',
+  'POST /api/auth/logout', 'POST /api/auth/password', 'GET /api/auth/session', 'PUT /api/auth/preferences',
   'GET /api/sections', 'GET /api/sections/:id', 'GET /api/section-types', 'GET /api/presentations',
   'GET /api/sections/:id/contents', 'POST /api/sections/:id/contents',
   'GET /api/contents/:id', 'PATCH /api/contents/:id', 'DELETE /api/contents/:id', 'POST /api/contents/:id/preview',

@@ -15,6 +15,7 @@ Estados: `PENDING` · `IN_PROGRESS` · `VALIDATION` · `APPROVED` · `BLOCKED`
 | 09 | Sitio público y presentación adaptable | `APPROVED` |
 | 10 | Auditoría, copias de seguridad y restauración (y pantallas de administración general, D-045) | `APPROVED` |
 | 11 | Pruebas integrales, seguridad y despliegue | `APPROVED` |
+| 12 | Paletas de color y modo claro/oscuro | `APPROVED` |
 
 Cada bloque requiere aprobación explícita antes de comenzar el siguiente.
 
@@ -314,3 +315,38 @@ Sin errores. Basta de sobra para un sitio institucional.
 - [x] Todas las pruebas pasan (incluidas las de los Bloques 01–10).
 - [x] Documentación final.
 - [x] Revisión y aprobación del responsable del proyecto (2026-11-22).
+
+## Bloque 12 — Detalle
+
+Bloque añadido a petición del responsable del proyecto el 2026-11-23, tras completar los once previstos.
+
+**Alcance** (ver [THEMES.md](THEMES.md), D-068–D-071):
+
+- **Paleta del sitio público:**
+  - la administración general la elige en **Sistema → Configuración**;
+  - catálogo de serie de cuatro paletas, cada una con modo claro y oscuro;
+  - las paletas son solo datos (`#rrggbb`) y el servidor genera `/assets/palette.css`.
+- **Paletas exclusivas de cada cliente:** se definen en un archivo propio de la instalación (`THEMES_FILE`), fuera del repositorio. Hay un ejemplo en `deploy/themes.example.json`.
+- **Contraste WCAG AA obligatorio:** toda paleta debe cumplirlo; si no, el servidor no arranca.
+- **Modo del visitante:** claro, oscuro o automático, sin JavaScript, guardado en la cookie de preferencia `site_mode`. La vuelta está validada y la caché distingue el modo.
+- **Modo del panel por usuario:** migración 009 y `PUT /api/auth/preferences`. Los 43 colores fijos que `admin.css` tenía fuera de las variables pasan a variables, con variante oscura.
+
+**Fuera de alcance:**
+
+- colores libres o CSS editable desde el panel;
+- personalizar los colores del panel por cliente;
+- tipografías o logotipos por cliente.
+
+**Criterios de aceptación:**
+
+- [x] La administración general elige la paleta. Solo se admiten ids del catálogo, y el cambio se audita.
+- [x] Todas las paletas de serie cumplen WCAG AA en los dos modos, comprobado por una prueba.
+- [x] `THEMES_FILE` se valida en forma, colores y contraste; uno inválido impide arrancar, y `npm run check` lo informa.
+- [x] El visitante elige el modo sin JavaScript, y sin elegirlo se sigue el del sistema.
+- [x] La vuelta tras elegir el modo no admite otros dominios ni rutas no públicas.
+- [x] Cada administrador elige el modo del panel y se conserva en su perfil.
+- [x] Panel: sin colores fijos fuera de las variables, y contraste AA en los dos modos.
+- [x] Sin cambios en la CSP del sitio ni del panel; prueba en navegador real sin violaciones de CSP ni desbordamientos.
+- [x] Todas las pruebas pasan (incluidas las de los Bloques 01–11).
+- [x] Documentación actualizada.
+- [x] Revisión y aprobación del responsable del proyecto (2026-11-23).

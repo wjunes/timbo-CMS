@@ -171,6 +171,20 @@ describe('arranque del servidor', () => {
     assert.match(output(), /pendiente/);
   });
 
+  it('no arranca si THEMES_FILE tiene una paleta inválida o sin contraste (Bloque 12)', async () => {
+    const themes = path.join(dir, 'themes-bad.json');
+    const palette = JSON.parse(fs.readFileSync(path.join(PROJECT_ROOT, 'deploy', 'themes.example.json'), 'utf8')).palettes[0];
+    palette.light.text = '#eeeeee';
+    fs.writeFileSync(themes, JSON.stringify({ palettes: [palette] }));
+    const file = path.join(dir, 'server-themes.db');
+    const db = openDatabase(file);
+    migrate(db);
+    closeDatabase(db);
+    const { exited, output } = await startServer({ DATABASE_PATH: file, THEMES_FILE: themes });
+    assert.equal(await exited, 1);
+    assert.match(output(), /Paletas inválidas:[\s\S]*contraste insuficiente en modo claro \(text\/bg/);
+  });
+
   it('arranca y responde con el esquema al día', async () => {
     const file = path.join(dir, 'server-ok.db');
     const db = openDatabase(file);

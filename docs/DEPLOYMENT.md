@@ -97,6 +97,15 @@ Antes de abrir el sitio:
 5. Copia manual desde **Sistema → Copias de seguridad** y su verificación.
 6. Simulacro de restauración (ver abajo) antes de cargar contenido real.
 
+**Colores del cliente (opcional).** Si el cliente tiene paletas exclusivas:
+
+1. Instale su archivo con `sudo install -o root -g cms -m 0640 themes.json /etc/cms-multiseccion/themes.json`.
+2. Añada `THEMES_FILE=/etc/cms-multiseccion/themes.json` a `cms.env`.
+3. Ejecute `cms scripts/check-env.js`, que valida las paletas y su contraste.
+4. Reinicie el servicio.
+
+El formato está en [THEMES.md](THEMES.md#paletas-exclusivas-de-un-cliente-themes_file).
+
 ## Copias de seguridad
 
 Las copias automáticas se guardan en `/var/lib/cms-multiseccion/storage/backups` (ver [BACKUPS.md](BACKUPS.md)). En el mismo disco no protegen de su pérdida, así que hay que llevarlas fuera del servidor.
