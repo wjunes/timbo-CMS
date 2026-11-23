@@ -47,6 +47,20 @@ La base copiada se abre en solo lectura y con `trusted_schema=OFF`.
 | `npm run backup:prune` | Aplica la retención. |
 | `npm run backup:restore -- <id> --confirm` | Restaura una copia, con el servidor detenido. |
 
+## API
+
+Todas exigen sesión de `general_admin` y, para escribir, `X-CSRF-Token`. El `<id>` son los 14 dígitos de la copia; cualquier otro valor responde `404`.
+
+| Método y ruta | Respuesta |
+| --- | --- |
+| `GET /api/backups` | `200 { backups, schedule: { intervalHours, keep }, running }`. Cada copia: `id`, `createdAt`, `kind`, `createdBy`, `appVersion`, `schemaVersion`, `fileCount`, `mediaCount`, `sizeBytes`, `auditHead` y `warnings`. Las que tienen el manifiesto ilegible aparecen como `{ id, broken: true }`. |
+| `POST /api/backups` | `201 { backup }`: crea y verifica una copia manual. `409 backup_in_progress` si hay otra en curso o una purga. |
+| `GET /api/backups/<id>` | `200 { backup }` · `404 backup_not_found` |
+| `POST /api/backups/<id>/verify` | `200 { ok, issues }`. Cada problema tiene `code` (`file_corrupt`, `file_missing`, `unexpected_file`, `manifest_invalid`, `database_corrupt`…) y, si aplica, `path` o `mediaId`. Se audita (`backup.verify`). |
+| `DELETE /api/backups/<id>` | `204` · `404 backup_not_found`. Se audita (`backup.delete`). |
+
+La API no ofrece rutas para restaurar ni para descargar copias (D-060). Ninguna respuesta incluye rutas del servidor ni el contenido de los archivos.
+
 ## Restauración controlada (D-060)
 
 Solo se hace desde la línea de órdenes y con el servidor detenido. Mientras el servidor está en marcha mantiene el bloqueo `STORAGE_DIR/cms.lock`, y la restauración lo toma también: el servidor no puede arrancar a mitad de una restauración. Un bloqueo de un proceso que ya no existe se considera abandonado y se reemplaza.

@@ -69,6 +69,13 @@ Las páginas, el sitemap y los archivos llevan `ETag` y `Cache-Control: no-cache
 
 ## Ajustes del sitio (D-056)
 
+| Método y ruta | Cuerpo | Respuesta |
+| --- | --- | --- |
+| `GET /api/settings` | — | `200 { settings: { siteName, siteDescription } }` |
+| `PATCH /api/settings` | `siteName` (1–120 caracteres) y/o `siteDescription` (0–300); texto plano, sin caracteres de control | `200 { settings }` · `400 validation_failed` (también con campos desconocidos o sin ninguno) |
+
+Solo `general_admin`. Cada cambio real se audita (`settings.update`) con el valor anterior y el nuevo; guardar los mismos valores no deja registro.
+
 `site.name` y `site.description` se guardan en `settings` (valores JSON). La migración 007 los crea con un valor por defecto. Se cambian en el panel, en **Sistema → Configuración** (`PATCH /api/settings`, Bloque 10), y cada cambio se audita.
 
 ## Limitaciones conocidas

@@ -119,6 +119,7 @@ const MESSAGES = {
   backup_not_found: 'La copia de seguridad no existe.',
   purge_candidates_changed: 'La lista de archivos cambió mientras tanto. Recarga e inténtalo de nuevo.',
   internal_error: 'Error interno del servidor. Consulta el registro.',
+  too_many_requests: 'Demasiadas peticiones seguidas. Espera un minuto e inténtalo de nuevo.',
 };
 
 const REJECT_REASONS = {

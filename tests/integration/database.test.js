@@ -134,7 +134,9 @@ describe('arranque del servidor', () => {
   async function startServer(env) {
     const port = await freePort();
     const child = spawn(process.execPath, [path.join(PROJECT_ROOT, 'backend', 'server.js')], {
-      env: childEnv({ LOG_LEVEL: 'info', PORT: String(port), ...env }),
+      // STORAGE_DIR propio: desde el Bloque 10 el servidor toma el bloqueo cms.lock
+      // en él, y el del proyecto puede estar en uso por un servidor de desarrollo.
+      env: childEnv({ LOG_LEVEL: 'info', PORT: String(port), STORAGE_DIR: path.join(dir, `storage-${port}`), BACKUP_INTERVAL_HOURS: '0', ...env }),
       stdio: ['ignore', 'pipe', 'pipe'],
     });
     let output = '';

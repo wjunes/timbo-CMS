@@ -11,7 +11,7 @@ Implementado en el Bloque 03. Código en [`backend/modules/auth/`](../backend/mo
 | `modules/auth/rate-limiter.js` | Limitador de intentos en memoria con número de claves acotado. |
 | `modules/auth/index.js` | Login, logout, sesión actual, cookie y resolución de la sesión. |
 | `modules/audit/audit.js` | Escritura en `audit_logs`, con los detalles redactados. |
-| `modules/users/repository.js` | Consultas mínimas sobre `users` (el CRUD llega en el Bloque 04). |
+| `modules/users/repository.js` | Consultas sobre `users`; la administración de usuarios está en [USERS.md](USERS.md). |
 | `middleware/http.js` | Errores HTTP, cookies, cuerpo JSON, IP del cliente y validación de origen. |
 | `scripts/admin.js` | Alta y recuperación del `general_admin` por consola. |
 

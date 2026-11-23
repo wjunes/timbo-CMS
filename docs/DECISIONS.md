@@ -39,7 +39,7 @@ Formato: contexto → decisión → consecuencias. Las decisiones solo se revisa
 
 ## D-008 · Directorios solo con contenido real
 
-- **Decisión:** no se crean carpetas ni archivos vacíos o `.gitkeep` para completar la estructura de referencia. La estructura planificada se documenta en [ARCHITECTURE.md](ARCHITECTURE.md).
+- **Decisión:** no se crean carpetas ni archivos vacíos o `.gitkeep` para completar la estructura de referencia. La estructura resultante y sus diferencias con la de referencia están en D-066.
 
 ## D-009 · Finales de línea LF
 

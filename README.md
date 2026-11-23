@@ -76,6 +76,7 @@ Si la configuración es inválida, el servidor no arranca e informa de todos los
 
 ## Documentación
 
+- [Guía de uso del panel](docs/MANUAL.md)
 - [Arquitectura](docs/ARCHITECTURE.md)
 - [Base de datos](docs/DATABASE.md)
 - [Autenticación y sesiones](docs/AUTH.md)

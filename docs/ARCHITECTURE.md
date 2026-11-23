@@ -78,4 +78,4 @@ Las diferencias con la estructura de referencia de la especificación y su motiv
 
 ## Entorno de datos
 
-La base de datos SQLite (modo WAL) debe estar en un disco local, nunca en carpetas sincronizadas ni en unidades de red. El riesgo de OneDrive detectado en el Bloque 01 está resuelto. Ver [DECISIONS.md](DECISIONS.md#d-006).
+La base de datos SQLite (modo WAL) debe estar en un disco local, nunca en carpetas sincronizadas ni en unidades de red. El riesgo de OneDrive detectado en el Bloque 01 está resuelto. Ver [D-006](DECISIONS.md#d-006--riesgo-repositorio-dentro-de-onedrive--resuelto).

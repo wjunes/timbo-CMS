@@ -161,6 +161,6 @@ Cada escritura se audita en la misma transacción (entidad `content`):
 | `version.update` | `versionId`, `versionNumber`, `revision` (nueva), `fields` (campos cambiados; nunca el cuerpo) |
 | `version.discard` | `versionId`, `versionNumber` |
 
-## Pendiente en otros bloques
+## Fuera del alcance
 
 - Consulta y restauración de contenidos eliminados: fuera del alcance (D-063); se recuperan restaurando una copia de seguridad.
