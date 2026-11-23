@@ -60,8 +60,11 @@ systemctl status cms-multiseccion
 journalctl -u cms-multiseccion -f           # registros (JSON, una línea por evento)
 
 sudo cp deploy/Caddyfile /etc/caddy/Caddyfile   # con su dominio
+sudo -u caddy caddy validate --config /etc/caddy/Caddyfile
 sudo systemctl reload caddy
 ```
+
+**Valide el Caddyfile como el usuario `caddy`, nunca con `sudo caddy validate`.** Al validar, Caddy abre el archivo de registro. Si lo hace como `root`, crea `/var/log/caddy/cms-access.log` como propiedad de `root`, y el servicio, que se ejecuta como `caddy`, ya no puede escribir en él: la recarga falla con `permission denied` y Caddy sigue con la configuración anterior. Si ocurre, borre ese archivo y recargue. Lo detectó el ensayo de despliegue.
 
 **El servicio:**
 

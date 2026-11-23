@@ -2,8 +2,28 @@
 
 CMS web de sitio único con múltiples secciones independientes, administración centralizada (`general_admin`) y administradores delegados por sección, con flujo editorial, versionado y gestión multimedia.
 
-> **Estado actual:** Bloques 01–11 aprobados: el desarrollo previsto está completo. Siguiente paso: despliegue en producción (ver [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)).
-> Hay base de datos, autenticación y API de usuarios, permisos, secciones, contenidos con versionado y flujo editorial (revisión, aprobación y publicación); además, multimedia con validación real de archivos y el núcleo del panel de administración (`/admin/`) con el editor Tiptap. También hay sitio público (HTML generado en el servidor, sin JavaScript) que muestra solo lo publicado. Ver [docs/ROADMAP.md](docs/ROADMAP.md).
+> **Estado actual:** bloques 01–12 aprobados. El despliegue de referencia (Linux, Caddy y systemd) se ensayó con éxito en un Ubuntu local el 2026-11-23. Siguiente paso: pruebas en un servidor real (ver [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)).
+
+## Desarrollo por bloques
+
+Cada bloque se aprobó antes de empezar el siguiente. Su alcance, lo que quedó fuera y los criterios de aceptación están en [docs/ROADMAP.md](docs/ROADMAP.md), y el porqué de cada decisión en [docs/DECISIONS.md](docs/DECISIONS.md).
+
+| Bloque | Contenido | Documentación |
+| --- | --- | --- |
+| 01 | Proyecto, configuración validada, logger y servidor mínimo | [ARCHITECTURE.md](docs/ARCHITECTURE.md) |
+| 02 | SQLite, esquema y migraciones con checksum | [DATABASE.md](docs/DATABASE.md) |
+| 03 | Autenticación (Argon2id), sesiones, CSRF y fuerza bruta | [AUTH.md](docs/AUTH.md) |
+| 04 | Usuarios, roles y permisos por sección | [USERS.md](docs/USERS.md) |
+| 05 | Secciones jerárquicas, tipos y presentaciones | [SECTIONS.md](docs/SECTIONS.md) |
+| 06 | Contenidos y versionado | [CONTENTS.md](docs/CONTENTS.md) |
+| 07 | Flujo editorial: revisión, aprobación y publicación | [EDITORIAL.md](docs/EDITORIAL.md) |
+| 08 | Editor enriquecido (Tiptap), multimedia y panel `/admin/` | [MEDIA.md](docs/MEDIA.md) |
+| 09 | Sitio público sin JavaScript, adaptable, con URL estables | [PUBLIC.md](docs/PUBLIC.md) |
+| 10 | Auditoría verificable, copias, restauración y pantallas de administración | [AUDIT.md](docs/AUDIT.md), [BACKUPS.md](docs/BACKUPS.md) |
+| 11 | Revisión de seguridad, pruebas integrales y en navegador, despliegue | [SECURITY.md](docs/SECURITY.md), [DEPLOYMENT.md](docs/DEPLOYMENT.md) |
+| 12 | Paletas de color, paletas exclusivas por cliente y modo claro/oscuro | [THEMES.md](docs/THEMES.md) |
+
+La guía para quien usa el panel está en [docs/MANUAL.md](docs/MANUAL.md).
 
 ## Requisitos
 
